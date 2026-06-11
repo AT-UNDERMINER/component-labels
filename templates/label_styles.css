@@ -1,0 +1,209 @@
+/* ============================================================
+   label_styles.css — shared styles for all label templates.
+
+   Every dimension is in physical mm so WeasyPrint renders labels
+   at exactly 45×45mm; browsers honour mm too (see preview.html).
+
+   Section heights inside each template are budgeted to sum to
+   exactly 45mm (box-sizing: border-box, so borders and padding
+   are included in each section's height):
+
+     simple:     6.5 + 10  + 28.5             = 45mm
+     complex:    6.5 + 9   + 5.5 + 16  + 8    = 45mm
+     connector:  6.5 + 8.5 + 8   + 5.5 + 8.5 + 8 = 45mm
+   ============================================================ */
+
+* { margin: 0; padding: 0; box-sizing: border-box; }
+
+.label {
+  width: 45mm;
+  height: 45mm;
+  overflow: hidden;
+  background: #fff;
+  color: #111;
+  font-family: "DejaVu Sans", Arial, Helvetica, sans-serif;
+}
+
+img { display: block; }
+
+/* ── Top colour bar (all templates) ──────────────────────────
+   Background colour is injected inline by the template from
+   config.type_colour(). */
+.type-bar {
+  height: 6.5mm;
+  line-height: 6.5mm;
+  padding: 0 1mm;
+  color: #fff;
+  font-size: 3.1mm;
+  font-weight: bold;
+  text-align: center;
+  text-transform: uppercase;
+  letter-spacing: 0.25mm;
+  white-space: nowrap;
+  overflow: hidden;
+}
+
+/* ── Shared: QR row (complex + connector) ──────────────────── */
+.qr-row {
+  height: 8mm;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-top: 0.2mm solid #ddd;
+}
+.qr-row .qr { width: 7mm; height: 7mm; }
+.qr-row .qr-hint { font-size: 2.1mm; color: #777; margin-left: 1.5mm; }
+
+/* ── Shared: empty-slot placeholder ──────────────────────────── */
+.placeholder {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 2.2mm;
+  color: #bbb;
+  font-style: italic;
+}
+
+/* ── Shared: 3-column spec strip (complex + connector) ───────── */
+.specs-row {
+  height: 5.5mm;
+  display: flex;
+  border-top: 0.2mm solid #ddd;
+  padding: 0 0.5mm;
+}
+.spec-cell { flex: 1; min-width: 0; padding-top: 0.3mm; text-align: center; }
+.spec-cell .spec-name {
+  font-size: 1.9mm;
+  line-height: 2.1mm;
+  color: #666;
+  text-transform: uppercase;
+  white-space: nowrap;
+  overflow: hidden;
+}
+.spec-cell .spec-value {
+  font-size: 2.5mm;
+  line-height: 2.8mm;
+  font-weight: bold;
+  white-space: nowrap;
+  overflow: hidden;
+}
+
+/* ════════ SIMPLE (resistor, caps, LED, zener, inductor) ════════ */
+.simple .head { height: 10mm; padding: 1.2mm 1.5mm 0; }
+.simple .mpn {
+  font-size: 4mm;
+  font-weight: bold;
+  line-height: 4.8mm;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.simple .value {
+  font-size: 3.3mm;
+  line-height: 3.9mm;
+  color: #333;
+  white-space: nowrap;
+  overflow: hidden;
+}
+.simple .body {
+  height: 28.5mm;
+  display: flex;
+  padding: 1mm 1.5mm 1.2mm;
+  border-top: 0.2mm solid #ddd;
+}
+.simple .specs { flex: 1; min-width: 0; }
+.simple .spec {
+  display: flex;
+  justify-content: space-between;
+  font-size: 2.6mm;
+  line-height: 4mm;
+  border-bottom: 0.2mm dotted #e5e5e5;
+}
+.simple .spec-name { color: #666; margin-right: 1mm; white-space: nowrap; overflow: hidden; }
+.simple .spec-value { font-weight: bold; white-space: nowrap; }
+.simple .pinout { width: 15mm; margin-left: 1mm; }
+.simple .pinout img { width: 100%; height: 100%; object-fit: contain; }
+
+/* ════════ COMPLEX (BJT, MOSFET, IC, op-amp) ════════ */
+.complex .head { height: 9mm; display: flex; padding: 1mm 1.5mm; }
+.complex .id { flex: 1; min-width: 0; }
+.complex .mpn {
+  font-size: 3.6mm;
+  font-weight: bold;
+  line-height: 4.2mm;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.complex .desc {
+  font-size: 2.3mm;
+  line-height: 2.7mm;
+  color: #555;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.complex .pkg { width: 10mm; margin-left: 1mm; }
+.complex .pkg img { width: 100%; height: 100%; object-fit: contain; }
+.complex .pinout-box {
+  height: 16mm;
+  border-top: 0.2mm solid #ddd;
+  padding: 0.8mm;
+}
+.complex .pinout-box img { width: 100%; height: 100%; object-fit: contain; margin: 0 auto; }
+
+/* ════════ CONNECTOR (JST etc.) ════════ */
+.connector .head { height: 8.5mm; display: flex; padding: 1mm 1.5mm; }
+.connector .id { flex: 1; min-width: 0; }
+.connector .mpn {
+  font-size: 3.4mm;
+  font-weight: bold;
+  line-height: 3.9mm;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.connector .desc {
+  font-size: 2.2mm;
+  line-height: 2.5mm;
+  color: #555;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.connector .pkg { width: 9mm; margin-left: 1mm; }
+.connector .pkg img { width: 100%; height: 100%; object-fit: contain; }
+
+/* The headline feature: pin count + pitch, big and unmissable. */
+.connector .big-stats {
+  height: 8mm;
+  display: flex;
+  padding: 0.7mm 1.5mm;
+  border-top: 0.2mm solid #ddd;
+}
+.connector .stat {
+  flex: 1;
+  background: #f4f4f4;
+  border: 0.2mm solid #d8d8d8;
+  border-radius: 0.8mm;
+  text-align: center;
+  padding-top: 0.3mm;
+  overflow: hidden;
+}
+.connector .stat + .stat { margin-left: 1mm; }
+.connector .stat-name {
+  font-size: 1.8mm;
+  line-height: 2mm;
+  color: #666;
+  letter-spacing: 0.2mm;
+}
+.connector .stat-value {
+  font-size: 3.2mm;
+  line-height: 3.6mm;
+  font-weight: bold;
+  white-space: nowrap;
+}
+.connector .drawing { height: 8.5mm; border-top: 0.2mm solid #ddd; padding: 0.6mm; }
+.connector .drawing img { width: 100%; height: 100%; object-fit: contain; margin: 0 auto; }

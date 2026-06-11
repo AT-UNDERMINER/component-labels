@@ -1,0 +1,51 @@
+{#
+  label_simple.html — 45x45mm label for simple components
+  (resistor, capacitor_electrolytic, capacitor_ceramic, led,
+   zener_diode, inductor).
+
+  Context variables (injected by core/label_builder.py):
+    type_colour      hex colour for the top bar — config.type_colour()
+    bar_text_colour  "#000000"/"#ffffff", picked by background luminance
+    type_name        display name for the bar — config.type_display_name()
+    mpn            manufacturer part number
+    value          primary value string, e.g. "10 kΩ" / "100 nF"
+    specs          list of {"name": str, "value": str}; first 3 shown
+    pinout_image   path/URI of pinout PNG, or None — column collapses
+                   and specs take the full width when absent
+#}
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <link rel="stylesheet" href="label_styles.css">
+  <style>
+    /* Page setup for a single-label PDF; the A4 sheet renderer
+       (core/pdf_renderer.py) supplies its own @page instead. */
+    @page { size: 45mm 45mm; margin: 0; }
+  </style>
+</head>
+<body>
+  <div class="label simple">
+    <div class="type-bar" style="background: {{ type_colour }}; color: {{ bar_text_colour }};">{{ type_name }}</div>
+
+    <div class="head">
+      <div class="mpn">{{ mpn }}</div>
+      <div class="value">{{ value }}</div>
+    </div>
+
+    <div class="body">
+      <div class="specs">
+        {% for spec in specs[:3] %}
+        <div class="spec">
+          <span class="spec-name">{{ spec.name }}</span>
+          <span class="spec-value">{{ spec.value }}</span>
+        </div>
+        {% endfor %}
+      </div>
+      {% if pinout_image %}
+      <div class="pinout"><img src="{{ pinout_image }}" alt="pinout"></div>
+      {% endif %}
+    </div>
+  </div>
+</body>
+</html>

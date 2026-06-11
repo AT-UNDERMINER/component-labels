@@ -1,0 +1,8 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(python -c \"import qrcode, PIL; print\\('qrcode OK, pillow', PIL.__version__\\)\")",
+      "Bash(pip install *)"
+    ]
+  }
+}
