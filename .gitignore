@@ -27,3 +27,7 @@ Thumbs.db
 *.png
 dist/
 build/
+
+# Claude
+.claude/
+CLAUDE.md
