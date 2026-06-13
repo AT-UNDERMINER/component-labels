@@ -1,0 +1,8 @@
+requests
+pymupdf
+weasyprint
+flask
+python-dotenv
+qrcode[pil]
+Pillow
+jinja2
