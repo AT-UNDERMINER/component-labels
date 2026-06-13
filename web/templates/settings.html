@@ -1,0 +1,51 @@
+{% extends "base.html" %}
+{% block title %}Settings — Component Labels{% endblock %}
+{% block content %}
+<h1>Settings</h1>
+
+<form method="post" class="form">
+  <section class="panel">
+    <h2>Sheet geometry <span class="muted">(mm)</span></h2>
+    <p class="muted small">Fine-tune to your printer's offset. Saved to <code>db/settings.json</code>;
+      <strong>restart the server to apply</strong> &mdash; geometry is read once at startup.</p>
+    <div class="geo-grid">
+      {% for field in geometry_fields %}
+      <div class="geo-field">
+        <label>{{ field.label }}</label>
+        <input type="number" step="{{ field.step }}" name="geo_{{ field.name }}" value="{{ field.value }}">
+      </div>
+      {% endfor %}
+    </div>
+  </section>
+
+  <section class="panel">
+    <h2>Colour map</h2>
+    <p class="muted small">Top colour bar per component type. Applied on next restart.</p>
+    <div class="colour-grid">
+      {% for key, info in component_types.items() %}
+      <div class="colour-field">
+        <input type="color" name="col_{{ key }}" value="{{ info.colour }}">
+        <span>{{ info.display_name }} <code class="muted">{{ key }}</code></span>
+      </div>
+      {% endfor %}
+    </div>
+  </section>
+
+  <div class="form-actions">
+    <button type="submit" class="btn primary">Save settings</button>
+  </div>
+</form>
+
+<section class="panel">
+  <h2>API credentials <span class="muted">(status only — values never shown)</span></h2>
+  <table class="kv">
+    <tr><th>NEXAR_CLIENT_ID</th><td>{% if api.client_id %}<span class="ok">configured &check;</span>{% else %}<span class="bad">not set</span>{% endif %}</td></tr>
+    <tr><th>NEXAR_CLIENT_SECRET</th><td>{% if api.client_secret %}<span class="ok">configured &check;</span>{% else %}<span class="bad">not set</span>{% endif %}</td></tr>
+    <tr><th>Token URL</th><td class="mono">{{ api.token_url }}</td></tr>
+    <tr><th>API URL</th><td class="mono">{{ api.api_url }}</td></tr>
+    <tr><th>QR host</th><td class="mono">{{ api.qr_host }}</td></tr>
+  </table>
+  <p class="muted small">Credentials are environment-only (<code>.env</code>) and are never written to
+    <code>settings.json</code>.</p>
+</section>
+{% endblock %}

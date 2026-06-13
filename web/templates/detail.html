@@ -1,0 +1,59 @@
+{% extends "base.html" %}
+{% block title %}{{ c.mpn }} — Component Labels{% endblock %}
+{% block content %}
+<p class="crumb"><a href="{{ url_for('index') }}">&larr; Dashboard</a></p>
+
+<div class="detail-head">
+  <h1>{{ c.mpn }}</h1>
+  <span class="type-tag"
+        style="background:{{ type_colour(c.component_type) }};color:{{ bar_text(type_colour(c.component_type)) }}">
+    {{ type_display_name(c.component_type) }}</span>
+  <a class="btn" href="{{ url_for('component_edit', mpn=c.mpn) }}">Edit label</a>
+</div>
+<p class="muted">{{ c.manufacturer or 'Unknown manufacturer' }} &middot; {{ c.description or 'No description' }}</p>
+
+<div class="detail-cols">
+  <section class="panel">
+    <h2>Label preview</h2>
+    <div class="label-preview">
+      <iframe src="{{ url_for('label_html', mpn=c.mpn) }}" title="label preview" scrolling="no"></iframe>
+    </div>
+    <p class="muted small">Live render of the actual label template at 3&times; scale (45&times;45&nbsp;mm).</p>
+  </section>
+
+  <section class="panel">
+    <h2>Specs <span class="muted">({{ specs|length }})</span></h2>
+    {% if specs %}
+    <table class="kv">
+      {% for s in specs %}
+      <tr>
+        <th>{{ (s.attribute.name if s.attribute else '') or (s.attribute.shortname if s.attribute else '') }}</th>
+        <td>{{ s.displayValue }}</td>
+      </tr>
+      {% endfor %}
+    </table>
+    {% else %}<p class="muted">No specs cached.</p>{% endif %}
+
+    <h2>Datasheet</h2>
+    {% if c.datasheet_url %}
+    <p><a href="{{ c.datasheet_url }}" target="_blank" rel="noopener">Vendor datasheet &nearr;</a>
+      {% if output_url(c.datasheet_path) %} &middot; <a href="{{ output_url(c.datasheet_path) }}" target="_blank">cached PDF</a>{% endif %}</p>
+    {% else %}<p class="muted">None.</p>{% endif %}
+  </section>
+</div>
+
+<div class="detail-cols">
+  <section class="panel">
+    <h2>Pinout image</h2>
+    {% set pin = output_url(c.pinout_image_path) %}
+    {% if pin %}<img class="asset" src="{{ pin }}" alt="pinout">
+    {% else %}<p class="muted">None. <a href="{{ url_for('component_edit', mpn=c.mpn) }}">Set one</a>.</p>{% endif %}
+  </section>
+  <section class="panel">
+    <h2>Package image</h2>
+    {% set pkg = output_url(c.package_image_path) %}
+    {% if pkg %}<img class="asset" src="{{ pkg }}" alt="package">
+    {% else %}<p class="muted">None.</p>{% endif %}
+  </section>
+</div>
+{% endblock %}

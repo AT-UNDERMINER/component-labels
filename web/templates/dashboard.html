@@ -1,0 +1,40 @@
+{% extends "base.html" %}
+{% block title %}Dashboard — Component Labels{% endblock %}
+{% block content %}
+<h1>Cached components <span class="muted">({{ total }})</span></h1>
+
+<div class="filters">
+  <a class="chip {% if not type_filter %}active{% endif %}" href="{{ url_for('index') }}">All ({{ total }})</a>
+  {% for key, info in component_types.items() %}
+    {% if counts.get(key) %}
+    <a class="chip {% if type_filter == key %}active{% endif %}"
+       href="{{ url_for('index', type=key) }}"
+       style="--chip:{{ info.colour }}">{{ info.display_name }} ({{ counts.get(key) }})</a>
+    {% endif %}
+  {% endfor %}
+  {% if counts.get(none) %}
+  <a class="chip {% if type_filter == '__none__' %}active{% endif %}"
+     href="{{ url_for('index', type='__none__') }}">Unclassified ({{ counts.get(none) }})</a>
+  {% endif %}
+</div>
+
+{% if components %}
+<table class="grid">
+  <thead><tr><th>MPN</th><th>Type</th><th>Manufacturer</th><th>Description</th><th></th></tr></thead>
+  <tbody>
+  {% for c in components %}
+    <tr>
+      <td><a href="{{ url_for('component_detail', mpn=c.mpn) }}"><strong>{{ c.mpn }}</strong></a></td>
+      <td><span class="dot" style="background:{{ type_colour(c.component_type) }}"></span>{{ type_display_name(c.component_type) }}</td>
+      <td>{{ c.manufacturer or '—' }}</td>
+      <td class="muted ellipsis">{{ c.description or '' }}</td>
+      <td class="actions"><a href="{{ url_for('component_edit', mpn=c.mpn) }}">edit</a></td>
+    </tr>
+  {% endfor %}
+  </tbody>
+</table>
+{% else %}
+<p class="empty">No components{% if type_filter %} of this type{% endif %} yet.
+  Add some with <code>python main.py add &lt;MPN&gt;</code>.</p>
+{% endif %}
+{% endblock %}

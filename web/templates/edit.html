@@ -1,0 +1,65 @@
+{% extends "base.html" %}
+{% block title %}Edit {{ c.mpn }} — Component Labels{% endblock %}
+{% block content %}
+<p class="crumb"><a href="{{ url_for('component_detail', mpn=c.mpn) }}">&larr; {{ c.mpn }}</a></p>
+<h1>Edit label &middot; {{ c.mpn }}</h1>
+
+<form method="post" class="form">
+  <div class="form-row">
+    <label>Manufacturer</label>
+    <input type="text" name="manufacturer" value="{{ c.manufacturer or '' }}">
+  </div>
+
+  <div class="form-row">
+    <label>Type <span class="muted">(sets template, colour bar &amp; key specs)</span></label>
+    <select name="component_type">
+      <option value="" {% if not c.component_type %}selected{% endif %}>&mdash; unclassified (default template) &mdash;</option>
+      {% for key, info in component_types.items() %}
+      <option value="{{ key }}" {% if c.component_type == key %}selected{% endif %}>{{ info.display_name }} ({{ key }})</option>
+      {% endfor %}
+    </select>
+  </div>
+
+  <div class="form-row">
+    <label>Description</label>
+    <input type="text" name="description" value="{{ c.description or '' }}">
+  </div>
+
+  <fieldset class="form-row">
+    <legend>Pinout image</legend>
+    <label class="radio"><input type="radio" name="pinout_choice" value="keep" checked>
+      Keep current
+      {% if output_url(c.pinout_image_path) %}<img class="thumb" src="{{ output_url(c.pinout_image_path) }}">{% else %}<span class="muted">(none)</span>{% endif %}
+    </label>
+    {% for img in pinout_candidates %}
+    <label class="radio"><input type="radio" name="pinout_choice" value="{{ img.value }}">
+      <img class="thumb" src="{{ img.url }}"> <span class="muted small">{{ img.name }}</span>
+    </label>
+    {% endfor %}
+    <label class="radio"><input type="radio" name="pinout_choice" value="custom">
+      Custom path <input type="text" name="pinout_custom" placeholder="output/images/&lt;MPN&gt;/my.png">
+    </label>
+  </fieldset>
+
+  <fieldset class="form-row">
+    <legend>Package image</legend>
+    <label class="radio"><input type="radio" name="package_choice" value="keep" checked>
+      Keep current
+      {% if output_url(c.package_image_path) %}<img class="thumb" src="{{ output_url(c.package_image_path) }}">{% else %}<span class="muted">(none)</span>{% endif %}
+    </label>
+    <label class="radio"><input type="radio" name="package_choice" value="custom">
+      Custom path <input type="text" name="package_custom" placeholder="output/images/&lt;MPN&gt;/pkg.png">
+    </label>
+  </fieldset>
+
+  <div class="form-row">
+    <label>Specs (raw JSON) <span class="muted">advanced &mdash; drives the label's key-spec rows</span></label>
+    <textarea name="specs_json" rows="10" class="mono">{{ specs_json }}</textarea>
+  </div>
+
+  <div class="form-actions">
+    <button type="submit" class="btn primary">Save &amp; rebuild label</button>
+    <a class="btn" href="{{ url_for('component_detail', mpn=c.mpn) }}">Cancel</a>
+  </div>
+</form>
+{% endblock %}

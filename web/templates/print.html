@@ -1,0 +1,41 @@
+{% extends "base.html" %}
+{% block title %}Print — Component Labels{% endblock %}
+{% block content %}
+<h1>Print job builder</h1>
+<p class="muted">Pick components, choose the first label position, and download a print-ready PDF
+  (Avery 45&times;45-S, {{ per_sheet }} labels per A4 sheet).</p>
+
+{% if not components %}
+<p class="empty">No cached components to print yet.</p>
+{% else %}
+<form method="post" class="form">
+  <div class="form-row inline">
+    <label>Start at position</label>
+    <input type="number" name="start" min="1" max="{{ per_sheet }}" value="1">
+    <span class="muted">1&ndash;{{ per_sheet }} (top-left = 1) &mdash; skip used cells on a part-used sheet.</span>
+  </div>
+
+  <div class="form-row">
+    <label class="radio"><input type="checkbox" id="select-all"> <strong>Select all</strong></label>
+  </div>
+
+  <table class="grid">
+    <thead><tr><th></th><th>MPN</th><th>Type</th><th>Manufacturer</th></tr></thead>
+    <tbody>
+    {% for c in components %}
+      <tr>
+        <td><input type="checkbox" name="mpns" value="{{ c.mpn }}" class="pick"></td>
+        <td><strong>{{ c.mpn }}</strong></td>
+        <td><span class="dot" style="background:{{ type_colour(c.component_type) }}"></span>{{ type_display_name(c.component_type) }}</td>
+        <td>{{ c.manufacturer or '—' }}</td>
+      </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+
+  <div class="form-actions">
+    <button type="submit" class="btn primary">Generate &amp; download PDF</button>
+  </div>
+</form>
+{% endif %}
+{% endblock %}
