@@ -19,6 +19,7 @@ only re-authenticate when it is about to expire.
 
 from __future__ import annotations
 
+import re
 import sys
 import time
 from dataclasses import dataclass
@@ -201,6 +202,95 @@ def find_datasheet_url(part: dict) -> str | None:
                 return url
 
     return None
+
+
+# ── Component-type classification ──────────────────────────────────────────────
+# Best-effort guess of the config.COMPONENT_TYPES key for a part, from its
+# description, category and spec attribute names. It only has to be good
+# enough to pre-fill the label type so the user rarely needs `--type`; a wrong
+# guess is harmless (it just picks the template/colour) and is always
+# overridable. Returns None when nothing matches, leaving the default template.
+#
+# Rules are ordered MOST-SPECIFIC-FIRST: keyword-hit counts are tallied per
+# type and the highest wins, with ties broken in favour of the earlier (more
+# specific) rule. So "ceramic capacitor" beats the generic "capacitor" signal,
+# "MOSFET transistor" lands on mosfet not bjt, and a bare "capacitor" falls
+# through to ceramic (its generic-term owner) rather than electrolytic.
+
+_CLASSIFY_RULES: list[tuple[str, list[str]]] = [
+    ("zener_diode",            ["zener"]),
+    ("mosfet",                 ["mosfet", "mos fet", "field effect", "fet",
+                                "n channel", "p channel", "rds"]),
+    ("bjt_transistor",         ["bjt", "npn", "pnp", "bipolar", "transistor",
+                                "collector", "emitter", "hfe"]),
+    ("ic_opamp",               ["op amp", "opamp", "operational amplifier",
+                                "amplifier", "comparator", "timer", "regulator",
+                                "microcontroller", "logic", "integrated circuit",
+                                "transceiver", "eeprom", "adc", "dac", "mcu"]),
+    ("led",                    ["led", "light emitting"]),
+    ("capacitor_electrolytic", ["electrolytic", "tantalum", "aluminum",
+                                "aluminium", "polymer"]),
+    ("capacitor_ceramic",      ["ceramic", "mlcc", "capacitor", "capacitance",
+                                "dielectric", "x7r", "x5r", "c0g", "np0"]),
+    ("connector",              ["connector", "header", "receptacle", "socket",
+                                "plug", "terminal block", "positions", "pitch",
+                                "contacts", "jst", "molex"]),
+    ("inductor",               ["inductor", "inductance", "choke",
+                                "ferrite bead", "coil"]),
+    ("resistor",               ["resistor", "resistance", "ohm", "res"]),
+]
+
+
+def _classify_norm(text: str) -> str:
+    """Lowercase, collapse every run of non-alphanumerics to a single space,
+    and pad with spaces so keyword phrases match on whole-word boundaries
+    (e.g. " led " won't match inside "controlled")."""
+    return " " + re.sub(r"[^a-z0-9]+", " ", str(text).lower()).strip() + " "
+
+
+def classify_component_type(part: dict | None) -> str | None:
+    """Guess a config.COMPONENT_TYPES key for a Nexar part record.
+
+    Builds a searchable blob from the description, the category (read
+    defensively — see note below), and every spec attribute's name/shortname,
+    then keyword-matches it against _CLASSIFY_RULES. Returns the best-scoring
+    type key, or None if no keyword matched at all.
+
+    Note on `category`: COMPONENT_QUERY does not currently fetch it, but this
+    reads `part["category"]` if present (dict with name/ancestors, or a plain
+    string) so the guess improves automatically should the query be expanded.
+    """
+    if not part:
+        return None
+
+    blobs: list[str] = []
+    if part.get("shortDescription"):
+        blobs.append(part["shortDescription"])
+
+    category = part.get("category")
+    if isinstance(category, dict):
+        blobs.append(category.get("name") or "")
+        for ancestor in category.get("ancestors") or []:
+            blobs.append((ancestor or {}).get("name") or "")
+    elif isinstance(category, str):
+        blobs.append(category)
+
+    for spec in part.get("specs") or []:
+        attr = spec.get("attribute") or {}
+        blobs.append(attr.get("name") or "")
+        blobs.append(attr.get("shortname") or "")
+
+    text = _classify_norm(" ".join(blobs))
+
+    best_key: str | None = None
+    best_score = 0
+    for type_key, keywords in _CLASSIFY_RULES:
+        # Match whole words, allowing one trailing 's' so plural category names
+        # (e.g. "Connectors", "Resistors") still hit the singular keyword.
+        score = sum(1 for kw in keywords if f" {kw} " in text or f" {kw}s " in text)
+        if score > best_score:  # strict >: ties keep the earlier, more specific rule
+            best_key, best_score = type_key, score
+    return best_key
 
 
 def _rule(width: int = 60) -> str:
