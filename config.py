@@ -16,6 +16,7 @@ Design rules enforced here (from CLAUDE.md):
 
 from __future__ import annotations
 
+import json
 import os
 from pathlib import Path
 
@@ -73,6 +74,53 @@ PROJECT_ROOT = Path(__file__).resolve().parent
 
 DB_PATH = _path_from_env("DB_PATH", "db/components.db")
 
+
+# ── Persisted UI settings overrides (db/settings.json) ─────────────────────────
+# The web UI's /settings page writes sheet-geometry and colour-bar overrides
+# here so a tweak made in the browser survives a restart. They are layered over
+# the env/defaults below, with JSON winning, by _geo_*() and the colour loop.
+# The file is optional: absent → pure env/default behaviour (unchanged). API
+# credentials are NEVER stored here — they stay environment-only.
+
+SETTINGS_PATH = DB_PATH.parent / "settings.json"
+
+
+def _load_settings() -> dict:
+    """Read db/settings.json, or {} if absent/corrupt (must never break startup)."""
+    try:
+        if SETTINGS_PATH.is_file():
+            data = json.loads(SETTINGS_PATH.read_text(encoding="utf-8"))
+            return data if isinstance(data, dict) else {}
+    except (OSError, ValueError):
+        pass
+    return {}
+
+
+_SETTINGS = _load_settings()
+
+
+def _geo_float(name: str, default: float) -> float:
+    """Geometry value with precedence: settings.json > env var > built-in default."""
+    geo = _SETTINGS.get("geometry") or {}
+    if name in geo:
+        try:
+            return float(geo[name])
+        except (TypeError, ValueError):
+            pass
+    return _float_from_env(name, default)
+
+
+def _geo_int(name: str, default: int) -> int:
+    """Integer geometry value with the same precedence as _geo_float()."""
+    geo = _SETTINGS.get("geometry") or {}
+    if name in geo:
+        try:
+            return int(geo[name])
+        except (TypeError, ValueError):
+            pass
+    return _int_from_env(name, default)
+
+
 OUTPUT_DIR = _path_from_env("OUTPUT_DIR", "output")
 DATASHEET_DIR = OUTPUT_DIR / "datasheets"   # cached downloaded PDFs
 IMAGE_DIR = OUTPUT_DIR / "images"           # extracted pinout / package images
@@ -104,19 +152,19 @@ QR_HOST = os.getenv("QR_HOST", "localhost:5000")
 # These are configurable constants, not magic numbers: the renderer reads them
 # from here so the user can fine-tune to their printer's offset via .env.
 
-SHEET_WIDTH_MM = _float_from_env("SHEET_WIDTH_MM", 210.0)    # A4 width
-SHEET_HEIGHT_MM = _float_from_env("SHEET_HEIGHT_MM", 297.0)  # A4 height
+SHEET_WIDTH_MM = _geo_float("SHEET_WIDTH_MM", 210.0)    # A4 width
+SHEET_HEIGHT_MM = _geo_float("SHEET_HEIGHT_MM", 297.0)  # A4 height
 
-LABEL_WIDTH_MM = _float_from_env("LABEL_WIDTH_MM", 45.0)
-LABEL_HEIGHT_MM = _float_from_env("LABEL_HEIGHT_MM", 45.0)
+LABEL_WIDTH_MM = _geo_float("LABEL_WIDTH_MM", 45.0)
+LABEL_HEIGHT_MM = _geo_float("LABEL_HEIGHT_MM", 45.0)
 
-GRID_COLS = _int_from_env("GRID_COLS", 4)
-GRID_ROWS = _int_from_env("GRID_ROWS", 5)
+GRID_COLS = _geo_int("GRID_COLS", 4)
+GRID_ROWS = _geo_int("GRID_ROWS", 5)
 
-MARGIN_TOP_MM = _float_from_env("MARGIN_TOP_MM", 13.0)   # sheet edge → first row
-MARGIN_LEFT_MM = _float_from_env("MARGIN_LEFT_MM", 10.0)  # sheet edge → first col
-GAP_H_MM = _float_from_env("GAP_H_MM", 5.0)              # horizontal gap between labels
-GAP_V_MM = _float_from_env("GAP_V_MM", 5.0)              # vertical gap between labels
+MARGIN_TOP_MM = _geo_float("MARGIN_TOP_MM", 13.0)   # sheet edge → first row
+MARGIN_LEFT_MM = _geo_float("MARGIN_LEFT_MM", 10.0)  # sheet edge → first col
+GAP_H_MM = _geo_float("GAP_H_MM", 5.0)              # horizontal gap between labels
+GAP_V_MM = _geo_float("GAP_V_MM", 5.0)              # vertical gap between labels
 
 # Total label slots on one sheet. Positions are numbered 1..LABELS_PER_SHEET,
 # left-to-right then top-to-bottom (1 = top-left, 20 = bottom-right).
@@ -150,6 +198,12 @@ COMPONENT_TYPES: dict[str, dict[str, str]] = {
     key: {"display_name": name, "colour": colour, "template": template}
     for key, name, colour, template in _TYPE_TABLE
 }
+
+# Apply any colour-bar overrides saved by the web UI (settings.json > _TYPE_TABLE).
+# Only the colour is overridable here; display name + template stay code-defined.
+for _key, _hex in (_SETTINGS.get("colours") or {}).items():
+    if _key in COMPONENT_TYPES and isinstance(_hex, str):
+        COMPONENT_TYPES[_key]["colour"] = _hex
 
 # Fallbacks used when a component's type is unknown or missing. The complex
 # template is the safest default — it has slots for everything.
