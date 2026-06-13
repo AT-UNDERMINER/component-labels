@@ -283,6 +283,61 @@ Pages:
 The query in `core/lookup.py` fetches: MPN, manufacturer, description, specs
 array, bestDatasheet URL, documentCollections. This can be expanded.
 
+### Provider interface (swappability contract)
+
+Nexar is not hardwired into the system. The rest of the codebase depends on
+`core/lookup.py` only through a **two-function interface**, so an alternative
+data provider (a different API, a local DB, a CSV importer) can be dropped in
+by replacing `core/lookup.py` alone — no other module changes:
+
+- `search_component(part_number: str, limit: int = 3) -> dict | None`
+  Returns one **component record dict** (shape below) for the best match, or
+  `None` if nothing is found. Authentication is handled internally (callers
+  never pass a token). Hard failures (bad query, quota, unreachable provider)
+  raise `RuntimeError`; missing credentials raise `NexarAuthError`.
+- `find_datasheet_url(part: dict) -> str | None`
+  Given a record dict, returns the best datasheet URL (or `None`).
+
+Everything else (`main.py`, `core/label_builder.py`, the web UI) is written
+against the **record dict — that dict shape is the real contract**, not the
+Nexar API. A replacement provider must map its native response into this
+shape:
+
+```python
+{
+    "mpn":              str,            # canonical part number; cached as the key
+    "manufacturer":     {"name": str} | None,   # only .name is read
+    "shortDescription": str | None,     # -> components.description
+    "specs": [                          # stored verbatim as specs_json
+        {                               # label_builder matches on the inner keys,
+            "attribute": {"name": str, "shortname": str},  # so both must be present
+            "displayValue": str,        # the human-readable value shown on labels
+        },
+        # ...
+    ],
+    "bestDatasheet":       {"url": str} | None,  # preferred datasheet source
+    "documentCollections": [            # fallback scanned by find_datasheet_url
+        {"documents": [{"url": str, "name": str}, # for the first .pdf link
+        # ...
+        ]},
+        # ...
+    ],
+}
+```
+
+Notes that keep a replacement honest:
+- All consumers read fields defensively (`(part.get("manufacturer") or {})...`),
+  so any field except `mpn` may be absent or `None`; a provider can omit
+  `documentCollections` if `bestDatasheet` is always supplied.
+- The `specs` element shape is load-bearing: `core/label_builder.py` resolves
+  per-type key specs by substring-matching `config.LABEL_SPECS` terms against
+  the normalised `attribute.shortname` + `attribute.name`, then displays
+  `displayValue`. A provider with differently-named attributes still works as
+  long as it emits this `{attribute:{name,shortname}, displayValue}` triple.
+- `component_type` is **not** part of this contract — no provider field maps to
+  it. It is supplied out of band (CLI `--type`, or the web UI) and defaults to
+  the generic template when absent.
+
 ---
 
 ## Pinout Image Extraction — Current Approach
