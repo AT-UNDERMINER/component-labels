@@ -1,0 +1,188 @@
+"""
+core/pdf_renderer.py — render cached labels onto print-ready A4 sheets (step 7).
+
+    render_sheet(mpns, output_path, *, start=1) -> Path   ← public entry point
+
+Pipeline position: the final step. Given an ordered list of cached MPNs it
+builds each label's HTML via core/label_builder.build_label(), lays the labels
+out on an A4 grid using the geometry constants in config.py, and rasterises the
+whole job to a single multi-page PDF with WeasyPrint.
+
+Layout model
+------------
+The sheet is one absolutely-positioned A4 page per `.sheet` div. Each label is
+dropped into a 45x45mm `.cell` placed at the millimetre coordinate computed
+from config's margins / gaps / label size. Positions are numbered 1..N
+left-to-right then top-to-bottom (1 = top-left). `start` is the first position
+filled, so a part-used sheet isn't wasted; when a sheet fills, the job spills
+onto a fresh page (positions 1..N).
+
+Why we only keep each label's <body>
+------------------------------------
+build_label() returns a *complete* single-label HTML document (its own <head>,
+its own `@page { size: 45mm 45mm }`). We splice out just the inner `.label`
+markup and drop the per-label page box — the sheet supplies its own A4 @page.
+The shared stylesheet and the labels' image URLs are written relative to
+templates/, so WeasyPrint is given base_url=config.TEMPLATE_DIR to resolve them
+(identical to how label_builder documents its output).
+
+WeasyPrint is a heavy, platform-specific dependency (trivial on the Linux
+target, awkward on Windows). It is imported lazily inside render_sheet() so
+this module — and anything that imports it (main.py, app.py) — loads fine
+without it; only an actual render needs it, and its absence raises a clear
+RuntimeError instead of an ImportError at module load.
+"""
+
+from __future__ import annotations
+
+import re
+from pathlib import Path
+
+import config
+from core import label_builder
+
+
+# ── Grid geometry ──────────────────────────────────────────────────────────────
+
+def _cell_xy(position: int) -> tuple[float, float]:
+    """Top-left (left_mm, top_mm) of label `position` (1-based) on a sheet."""
+    idx = position - 1
+    row, col = divmod(idx, config.GRID_COLS)
+    left = config.MARGIN_LEFT_MM + col * (config.LABEL_WIDTH_MM + config.GAP_H_MM)
+    top = config.MARGIN_TOP_MM + row * (config.LABEL_HEIGHT_MM + config.GAP_V_MM)
+    return left, top
+
+
+def _paginate(mpns: list[str], start: int) -> list[list[dict]]:
+    """Group the labels into sheets, each a list of placed-cell dicts.
+
+    Returns [[{mpn, position, left, top}, ...], ...] — one inner list per A4
+    page. The first label lands at `start`; each page holds positions up to
+    config.LABELS_PER_SHEET before the job spills onto a new page.
+    """
+    per_sheet = config.LABELS_PER_SHEET
+    sheets: list[list[dict]] = [[]]
+    position = start
+    for mpn in mpns:
+        if position > per_sheet:
+            sheets.append([])
+            position = 1
+        left, top = _cell_xy(position)
+        sheets[-1].append(
+            {"mpn": mpn, "position": position, "left": left, "top": top}
+        )
+        position += 1
+    return sheets
+
+
+# ── HTML assembly (pure — no WeasyPrint needed, so it is unit-testable) ─────────
+
+_BODY_RE = re.compile(r"<body[^>]*>(.*)</body>", re.DOTALL | re.IGNORECASE)
+
+
+def _label_fragment(full_html: str) -> str:
+    """Extract the inner `.label` markup from a build_label() document.
+
+    build_label() emits a whole HTML page; on the sheet we want only what's
+    inside <body>. Falls back to the full string if the body can't be located
+    (shouldn't happen with our templates, but never silently drops a label).
+    """
+    match = _BODY_RE.search(full_html)
+    return match.group(1).strip() if match else full_html
+
+
+def build_sheet_html(mpns: list[str], *, start: int = 1) -> str:
+    """Compose the full multi-page A4 HTML for a print job.
+
+    Separated from render_sheet() so the layout (page count, cell coordinates,
+    label content) can be built and tested without WeasyPrint installed.
+    """
+    if not mpns:
+        raise ValueError("build_sheet_html: no MPNs given.")
+    per_sheet = config.LABELS_PER_SHEET
+    if not (1 <= start <= per_sheet):
+        raise ValueError(f"start must be between 1 and {per_sheet} (got {start}).")
+
+    sheets = _paginate(mpns, start)
+
+    sheet_blocks: list[str] = []
+    for sheet in sheets:
+        cells = "\n".join(
+            f'    <div class="cell" style="left: {c["left"]:.3f}mm; '
+            f'top: {c["top"]:.3f}mm;">\n{_label_fragment(label_builder.build_label(c["mpn"]))}\n    </div>'
+            for c in sheet
+        )
+        sheet_blocks.append(f'  <div class="sheet">\n{cells}\n  </div>')
+
+    body = "\n".join(sheet_blocks)
+
+    # Stylesheet href + label image URLs are relative to templates/ — the
+    # caller renders with base_url=config.TEMPLATE_DIR so they resolve.
+    return f"""<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <link rel="stylesheet" href="label_styles.css">
+  <style>
+    @page {{ size: {config.SHEET_WIDTH_MM}mm {config.SHEET_HEIGHT_MM}mm; margin: 0; }}
+    html, body {{ margin: 0; padding: 0; }}
+    .sheet {{
+      position: relative;
+      width: {config.SHEET_WIDTH_MM}mm;
+      height: {config.SHEET_HEIGHT_MM}mm;
+      overflow: hidden;
+      page-break-after: always;
+    }}
+    .sheet:last-child {{ page-break-after: auto; }}
+    .cell {{
+      position: absolute;
+      width: {config.LABEL_WIDTH_MM}mm;
+      height: {config.LABEL_HEIGHT_MM}mm;
+      overflow: hidden;
+    }}
+  </style>
+</head>
+<body>
+{body}
+</body>
+</html>
+"""
+
+
+# ── Public API ──────────────────────────────────────────────────────────────────
+
+def render_sheet(
+    mpns: list[str],
+    output_path: str | Path,
+    *,
+    start: int = 1,
+) -> Path:
+    """Render an ordered list of cached MPNs to a print-ready A4 label PDF.
+
+    Labels fill positions left-to-right, top-to-bottom starting at `start`
+    (1..config.LABELS_PER_SHEET); the job spills onto extra pages as needed.
+    Writes one multi-page PDF to output_path and returns it.
+
+    Raises ValueError for bad input (no MPNs, out-of-range start), LookupError
+    if an MPN is not cached (propagated from build_label), and RuntimeError if
+    WeasyPrint is not installed.
+    """
+    html = build_sheet_html(mpns, start=start)
+
+    # Lazy import: keep the heavy/platform-specific dependency out of module load.
+    try:
+        from weasyprint import HTML
+    except ImportError as exc:
+        raise RuntimeError(
+            "WeasyPrint is required to render label PDFs but is not installed. "
+            "On the Linux target: `pip install weasyprint` (plus its system "
+            "libraries). See CLAUDE.md > Dependencies."
+        ) from exc
+
+    output_path = Path(output_path)
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+
+    # base_url = templates/ so the stylesheet and the labels' ../output/... image
+    # URLs resolve to real files on disk.
+    HTML(string=html, base_url=str(config.TEMPLATE_DIR)).write_pdf(str(output_path))
+    return output_path
