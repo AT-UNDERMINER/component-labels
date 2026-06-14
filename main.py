@@ -31,6 +31,9 @@ from __future__ import annotations
 import argparse
 import os
 import sys
+import threading
+from contextlib import contextmanager
+from collections.abc import Callable, Iterator
 from pathlib import Path
 
 import config
@@ -48,19 +51,55 @@ class CommandError(Exception):
     """
 
 
+# ── Progress reporting ──────────────────────────────────────────────────────
+# The pipeline reports via _step/_ok/_warn, which always print to the console.
+# The web UI also needs these lines to stream add_component() progress to the
+# browser, so each helper additionally forwards to a per-thread progress sink
+# (set by progress_sink()) when one is installed — keeping the CLI unchanged
+# while letting concurrent web jobs each capture their own progress.
+
+_progress_local = threading.local()
+
+
+def _emit(line: str) -> None:
+    """Forward one progress line to this thread's sink, if any is installed."""
+    sink: Callable[[str], None] | None = getattr(_progress_local, "sink", None)
+    if sink is not None:
+        sink(line)
+
+
+@contextmanager
+def progress_sink(callback: Callable[[str], None]) -> Iterator[None]:
+    """Route _step/_ok/_warn lines to `callback` (besides stdout) on this thread.
+
+    Used by the web UI to capture add_component() progress for a job. Re-entrant
+    and thread-local, so concurrent jobs do not interfere with each other or the
+    CLI's plain console output.
+    """
+    previous = getattr(_progress_local, "sink", None)
+    _progress_local.sink = callback
+    try:
+        yield
+    finally:
+        _progress_local.sink = previous
+
+
 # ── Small console helpers (ASCII only, so output is safe on a cp1252 terminal) ─
 
 def _step(n: int, total: int, msg: str) -> None:
     """Print a pipeline stage header, e.g. '[2/6] Looking up NE555...'."""
     print(f"[{n}/{total}] {msg}...")
+    _emit(f"[{n}/{total}] {msg}...")
 
 
 def _ok(msg: str) -> None:
     print(f"  + {msg}")
+    _emit(f"+ {msg}")
 
 
 def _warn(msg: str) -> None:
     print(f"  [!] {msg}")
+    _emit(f"[!] {msg}")
 
 
 # ── The add pipeline — single orchestrator ─────────────────────────────────────

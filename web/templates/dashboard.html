@@ -1,6 +1,37 @@
 {% extends "base.html" %}
 {% block title %}Dashboard — Component Labels{% endblock %}
 {% block content %}
+
+<div class="add-panels">
+  <section class="panel add-panel">
+    <h2>Add a part</h2>
+    <form id="lookup-form" class="inline-form" autocomplete="off">
+      <input type="text" name="mpn" placeholder="Part number, e.g. NE555P" required>
+      <select name="type" title="Component type">
+        <option value="">Auto-detect type</option>
+        {% for key, info in component_types.items() %}
+        <option value="{{ key }}">{{ info.display_name }}</option>
+        {% endfor %}
+      </select>
+      <label class="cb"><input type="checkbox" name="refresh"> Refresh</label>
+      <button class="btn primary" type="submit">Look&nbsp;up</button>
+    </form>
+    <div id="lookup-status" class="job-status" hidden></div>
+  </section>
+
+  <section class="panel add-panel">
+    <h2>Import from spreadsheet</h2>
+    <form id="import-form" class="inline-form">
+      <input type="file" name="file" accept=".xlsx,.csv" required>
+      <label class="cb"><input type="checkbox" name="refresh"> Refresh existing</label>
+      <button class="btn primary" type="submit">Import</button>
+      <a class="btn" href="{{ url_for('import_template') }}">Download&nbsp;template</a>
+    </form>
+    <p class="small muted">Columns: <code>mpn</code> (required), <code>type</code> (optional). Accepts .xlsx or .csv.</p>
+    <div id="import-status" class="job-status" hidden></div>
+  </section>
+</div>
+
 <h1>Cached components <span class="muted">({{ total }})</span></h1>
 
 <div class="filters">

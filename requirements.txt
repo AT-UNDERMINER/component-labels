@@ -6,3 +6,4 @@ python-dotenv
 qrcode[pil]
 Pillow
 jinja2
+openpyxl         # read/write .xlsx for the web UI batch import + template
