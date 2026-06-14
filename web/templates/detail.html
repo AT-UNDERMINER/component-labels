@@ -12,6 +12,13 @@
 </div>
 <p class="muted">{{ c.manufacturer or 'Unknown manufacturer' }} &middot; {{ c.description or 'No description' }}</p>
 
+{% if c.status == 'needs_review' %}
+<div class="review-banner">
+  <strong>⚠ Needs review:</strong> {{ c.review_reason or 'No package diagram was matched.' }}
+  <a href="{{ url_for('component_edit', mpn=c.mpn) }}">Edit &amp; approve &rarr;</a>
+</div>
+{% endif %}
+
 <div class="detail-cols">
   <section class="panel">
     <h2>Label preview</h2>

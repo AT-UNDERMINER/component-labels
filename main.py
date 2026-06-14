@@ -115,9 +115,11 @@ def add_component(
         1. Cache check    — if cached (and not --refresh), skip straight to the
                             label build using the stored data.
         2. API lookup     — Nexar GraphQL search for the part record.
-        3. Datasheet      — download the PDF (cache-aware, atomic).
-        4. Image extract  — score pages, rasterize the best pinout candidates.
-        5. Cache write    — persist the record + image paths to SQLite.
+        3. Datasheet      — download the PDF (cache-aware, atomic; cached for the
+                            web UI / QR link, nothing is extracted from it).
+        4. Package        — resolve the part's package to a bundled outline SVG;
+                            set status=ready on a match, else needs_review.
+        5. Cache write    — persist the record + status to SQLite.
         6. Label build    — render the label HTML and save it.
 
     Both the single-part `add` command and the batch `add --file` command call
@@ -126,12 +128,13 @@ def add_component(
 
     Returns the canonical (API-resolved) MPN the data was cached under. Raises
     CommandError for failures the user should see (e.g. no search results); a
-    missing datasheet or pinout is treated as a non-fatal warning so a usable
-    label is still produced from the specs alone.
+    missing datasheet is treated as a non-fatal warning, and a part whose
+    package has no bundled diagram is still cached — just flagged needs_review
+    for the user to fix in the editor.
     """
-    # Lazy imports: these pull in requests / PyMuPDF, which we don't want to
-    # require for `list` or `--help`.
-    from core import datasheet, lookup
+    # Lazy imports: these pull in requests / Jinja2 / qrcode, which we don't
+    # want to require for `list` or `--help`.
+    from core import datasheet, label_builder, lookup
 
     print(f"\n=== {mpn} ===")
 
@@ -181,30 +184,37 @@ def add_component(
                   "template. Set one with --type.")
 
     # ── 3. Datasheet download ───────────────────────────────────────────────
+    # The PDF is cached only so the web UI can link a local copy; nothing is
+    # extracted from it (pinout/package diagrams come from the SVG library).
     _step(3, 6, "Datasheet download")
     ds_url = lookup.find_datasheet_url(part)
     pdf_path: Path | None = None
     if not ds_url:
-        _warn("No datasheet URL for this part - label will have no pinout image.")
+        _warn("No datasheet URL for this part - the QR code will link the web UI.")
     else:
         print(f"  URL: {ds_url}")
         pdf_path = datasheet.download_pdf(ds_url, resolved, force=refresh)
         if pdf_path is None:
-            _warn("Datasheet download failed - continuing without a pinout image.")
+            _warn("Datasheet download failed - continuing without a cached PDF.")
 
-    # ── 4. Image extraction ─────────────────────────────────────────────────
-    _step(4, 6, "Pinout image extraction")
-    pinout_path: Path | None = None
-    if pdf_path is not None:
-        candidates = datasheet.extract_pinout_pages(pdf_path, resolved)
-        if candidates:
-            pinout_path = candidates[0]
-            _ok(f"{len(candidates)} candidate(s); using {pinout_path.name} "
-                "as the default pinout.")
-        else:
-            _warn("No pinout candidates extracted - use `set-image` to add one.")
+    # ── 4. Package diagram resolution ───────────────────────────────────────
+    # The bundled package-outline SVG library is the only automatic source of
+    # diagrams. A match → ready; no match → needs_review for the user to fix in
+    # the editor. An existing manual package image (set + approved earlier) is
+    # respected, so a --refresh never downgrades a part the user already fixed.
+    _step(4, 6, "Package diagram resolution")
+    existing = cache.get_component(resolved)
+    manual_pkg = (existing or {}).get("package_image_path")
+    if manual_pkg:
+        status, review_reason = "ready", None
+        _ok(f"Manual package image already set ({Path(manual_pkg).name}) - keeping 'ready'.")
     else:
-        print("  Skipped (no datasheet to extract from).")
+        status, review_reason = label_builder.package_review_status(part)
+        if status == "ready":
+            pkg_svg = label_builder.resolve_package_image(part)
+            _ok(f"Matched package diagram {pkg_svg.name} - marking 'ready'.")
+        else:
+            _warn(f"{review_reason} - marking 'needs_review' (fix it in the editor).")
 
     # ── 5. Cache write ──────────────────────────────────────────────────────
     _step(5, 6, "Writing to cache")
@@ -216,9 +226,10 @@ def add_component(
         specs=specs,
         datasheet_url=ds_url,
         datasheet_path=pdf_path,
-        pinout_image_path=pinout_path,
+        status=status,
+        review_reason=review_reason,
     )
-    _ok(f"Cached '{resolved}'.")
+    _ok(f"Cached '{resolved}' (status: {status}).")
 
     # ── 6. Label build ──────────────────────────────────────────────────────
     _step(6, 6, "Building label")

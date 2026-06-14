@@ -82,6 +82,30 @@ table.grid tbody tr:hover { background: #fafbfc; }
 .actions a { font-size: 13px; }
 .dot { display: inline-block; width: 10px; height: 10px; border-radius: 3px; margin-right: 7px; vertical-align: -1px; }
 
+/* ── Dashboard: needs-review vs ready sections ───────── */
+.review-section {
+  background: #fffbeb;
+  border: 1px solid #fcd34d;
+  border-left: 5px solid #f59e0b;
+  border-radius: 9px;
+  padding: 14px 16px 16px;
+  margin-bottom: 22px;
+}
+.review-title { color: #92400e; margin-top: 0; display: flex; align-items: center; gap: 9px; }
+.review-badge {
+  display: inline-flex; align-items: center; justify-content: center;
+  min-width: 22px; height: 20px; padding: 0 7px;
+  background: #f59e0b; color: #fff; border-radius: 999px;
+  font-size: 12px; font-weight: 700; letter-spacing: 0;
+}
+.review-note { color: #92400e; margin: 0 0 12px; }
+table.grid.review { border-color: #fcd34d; }
+table.grid.review thead th { background: #fef6e0; color: #92400e; }
+table.grid.review tbody tr:hover { background: #fefae8; }
+.review-reason { color: #92400e; font-size: 13px; }
+.ready-title { color: #374151; }
+.btn.small { padding: 4px 11px; font-size: 13px; }
+
 table.kv { width: 100%; border-collapse: collapse; }
 table.kv th, table.kv td { text-align: left; padding: 5px 8px; border-bottom: 1px solid var(--line); font-size: 13px; vertical-align: top; }
 table.kv th { color: var(--muted); font-weight: 600; width: 45%; }
@@ -122,6 +146,15 @@ label.radio input[type=text] { width: auto; flex: 1; }
 .btn:hover { background: #f3f4f6; }
 .btn.primary { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); }
 .btn.primary:hover { filter: brightness(1.05); }
+.btn.approve { background: var(--ok); border-color: var(--ok); color: #fff; }
+.btn.approve:hover { filter: brightness(1.05); }
+
+/* Editor needs-review banner */
+.review-banner {
+  background: #fffbeb; border: 1px solid #fcd34d; border-left: 5px solid #f59e0b;
+  border-radius: 8px; padding: 10px 14px; margin: 0 0 16px;
+  font-size: 14px; color: #92400e;
+}
 
 /* ── Dashboard add / import panels ───────────────────── */
 .add-panels { display: flex; gap: 16px; flex-wrap: wrap; margin-bottom: 22px; }

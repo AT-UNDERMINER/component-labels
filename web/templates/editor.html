@@ -4,6 +4,13 @@
 <p class="crumb"><a href="{{ url_for('component_detail', mpn=c.mpn) }}">&larr; {{ c.mpn }}</a></p>
 <h1>Label editor <span class="muted">&middot; {{ c.mpn }}</span></h1>
 
+{% if c.status == 'needs_review' %}
+<div class="review-banner">
+  <strong>⚠ Needs review:</strong> {{ c.review_reason or 'No package diagram was matched.' }}
+  Pick a package image below, then <em>Approve</em> to mark it ready.
+</div>
+{% endif %}
+
 <div class="editor"
      data-label-url="{{ url_for('label_html', mpn=c.mpn) }}"
      data-save-url="{{ url_for('component_edit', mpn=c.mpn) }}"
@@ -78,6 +85,9 @@
     </div>
 
     <div class="form-actions">
+      {% if c.status == 'needs_review' %}
+      <button type="button" class="btn approve" id="approve-btn">✓ Approve &amp; mark ready</button>
+      {% endif %}
       <button type="button" class="btn primary" id="save-btn">Save &amp; rebuild label</button>
       <a class="btn" href="{{ url_for('component_detail', mpn=c.mpn) }}">Cancel</a>
       <span id="save-flash" class="small"></span>

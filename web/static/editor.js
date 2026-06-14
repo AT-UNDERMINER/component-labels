@@ -138,8 +138,10 @@
     return best.el;
   }
 
-  // ── Save ───────────────────────────────────────────────────────────────
-  document.getElementById("save-btn").addEventListener("click", () => {
+  // ── Save / Approve ─────────────────────────────────────────────────────
+  // Both buttons POST the same editor state; "approve" adds a flag that also
+  // flips the component's status to ready and clears its review reason.
+  function submitEditor(approve) {
     const f = new FormData();
     f.append("template", elTemplate.value);
     f.append("headline", elHeadline.value);
@@ -147,13 +149,18 @@
     f.append("specs", JSON.stringify(activeSpecs()));
     f.append("pinout_image", images.pinout);
     f.append("package_image", images.package);
+    if (approve) f.append("approve", "1");
     const out = document.getElementById("save-flash");
-    out.textContent = "Saving…";
+    out.textContent = approve ? "Approving…" : "Saving…";
     fetch(saveUrl, { method: "POST", body: f })
       .then((r) => r.json())
       .then((d) => { if (d.ok) window.location = d.url; else out.textContent = d.error || "Save failed"; })
       .catch(() => { out.textContent = "Save failed"; });
-  });
+  }
+
+  document.getElementById("save-btn").addEventListener("click", () => submitEditor(false));
+  const approveBtn = document.getElementById("approve-btn");
+  if (approveBtn) approveBtn.addEventListener("click", () => submitEditor(true));
 
   function flashMsg(m) {
     flash.textContent = m;

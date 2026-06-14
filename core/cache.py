@@ -45,6 +45,8 @@ CREATE TABLE IF NOT EXISTS components (
     pinout_image_path  TEXT,
     package_image_path TEXT,
     overrides_json     TEXT,
+    status             TEXT    DEFAULT 'ready',
+    review_reason      TEXT,
     created_at         TEXT    NOT NULL,
     updated_at         TEXT    NOT NULL
 );
@@ -96,10 +98,16 @@ def _connect() -> sqlite3.Connection:
     conn.execute("PRAGMA foreign_keys = ON")  # enforce the labels→components FK
     conn.executescript(SCHEMA_SQL)  # IF NOT EXISTS throughout — idempotent and cheap
     # Lightweight migration: add columns introduced after a DB was first created
-    # (CREATE TABLE IF NOT EXISTS won't alter an existing table).
+    # (CREATE TABLE IF NOT EXISTS won't alter an existing table). Each ADD COLUMN
+    # backfills existing rows with the column default, so old records become
+    # status='ready' — they were already approved before the workflow existed.
     existing = {r["name"] for r in conn.execute("PRAGMA table_info(components)")}
     if "overrides_json" not in existing:
         conn.execute("ALTER TABLE components ADD COLUMN overrides_json TEXT")
+    if "status" not in existing:
+        conn.execute("ALTER TABLE components ADD COLUMN status TEXT DEFAULT 'ready'")
+    if "review_reason" not in existing:
+        conn.execute("ALTER TABLE components ADD COLUMN review_reason TEXT")
     return conn
 
 
@@ -159,12 +167,20 @@ def upsert_component(  # pylint: disable=too-many-arguments
     pinout_image_path: str | Path | None = None,
     package_image_path: str | Path | None = None,
     overrides: Any | None = None,
+    status: str | None = None,
+    review_reason: str | None = None,
 ) -> dict[str, Any]:
     """Insert a new component or update the existing one (keyed on mpn).
 
     Any field left as None is preserved on update rather than overwritten, so
     this doubles as a partial-update helper (e.g. supply only pinout_image_path
     to override the pinout without disturbing the rest of the record).
+
+    `status`/`review_reason` are a coupled pair and the one exception to the
+    "None preserves" rule above: pass `status` to set both at once (the matching
+    `review_reason`, which may be None to *clear* a stale reason — e.g. on
+    approval); leave `status` as None to preserve both. So you cannot wipe a
+    review_reason without also setting a status, which keeps the two consistent.
 
     `specs` may be any JSON-serialisable object; it is stored as specs_json.
     Path fields are relativised to the project root before storage.
@@ -183,8 +199,9 @@ def upsert_component(  # pylint: disable=too-many-arguments
             INSERT INTO components AS c (
                 mpn, manufacturer, component_type, description, specs_json,
                 datasheet_url, datasheet_path, pinout_image_path,
-                package_image_path, overrides_json, created_at, updated_at
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                package_image_path, overrides_json, status, review_reason,
+                created_at, updated_at
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, COALESCE(?, 'ready'), ?, ?, ?)
             ON CONFLICT(mpn) DO UPDATE SET
                 manufacturer       = COALESCE(excluded.manufacturer,       c.manufacturer),
                 component_type     = COALESCE(excluded.component_type,     c.component_type),
@@ -195,6 +212,13 @@ def upsert_component(  # pylint: disable=too-many-arguments
                 pinout_image_path  = COALESCE(excluded.pinout_image_path,  c.pinout_image_path),
                 package_image_path = COALESCE(excluded.package_image_path, c.package_image_path),
                 overrides_json     = COALESCE(excluded.overrides_json,     c.overrides_json),
+                status             = COALESCE(excluded.status,             c.status),
+                -- review_reason is coupled to status: only rewritten (and thus
+                -- clearable to NULL) when a new status is supplied, else kept.
+                review_reason      = CASE
+                                         WHEN ? IS NULL THEN c.review_reason
+                                         ELSE excluded.review_reason
+                                     END,
                 updated_at         = excluded.updated_at
             """,
             (
@@ -208,8 +232,11 @@ def upsert_component(  # pylint: disable=too-many-arguments
                 _relativize(pinout_image_path),
                 _relativize(package_image_path),
                 overrides_json,
+                status,
+                review_reason,
                 now,
                 now,
+                status,  # drives the review_reason CASE in the UPDATE branch
             ),
         )
 

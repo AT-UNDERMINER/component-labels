@@ -3,13 +3,15 @@
 ## Project Overview
 
 A fully automated electronic component label generation system. The user supplies one
-or more part numbers via CLI or web UI; the system looks up component data, extracts
-pinout diagrams and package images from datasheets, generates print-ready PDF labels
+or more part numbers via CLI or web UI; the system looks up component data, matches the
+part's package to a bundled outline diagram, generates print-ready PDF labels
 formatted for Avery 45×45-S sheets, and stores everything locally so no repeat API
 calls are needed.
 
-The goal is maximum automation: give it a part number, get a print-ready label. The
-only manual steps should be optional overrides (e.g. swapping a pinout image).
+The goal is maximum automation: give it a part number, get a print-ready label. When
+the package can't be matched automatically the part is flagged **needs_review** rather
+than guessed at, so the only manual step is approving those few in the web editor
+(optionally swapping in a package/pinout image first).
 
 ---
 
@@ -55,7 +57,7 @@ component-labels/
 │
 ├── core/
 │   ├── lookup.py              ← Nexar/Octopart API queries + auth
-│   ├── datasheet.py           ← PDF download, pinout page scoring, image extraction
+│   ├── datasheet.py           ← PDF download only (nothing is extracted from it)
 │   ├── cache.py               ← SQLite read/write layer
 │   ├── label_builder.py       ← Populates label template with component data
 │   └── pdf_renderer.py        ← Renders label grid to PDF using ReportLab or WeasyPrint
@@ -75,8 +77,9 @@ component-labels/
 │   └── components.db          ← SQLite database (auto-created on first run)
 │
 └── output/
-    ├── datasheets/            ← Cached downloaded PDFs
-    ├── images/                ← Extracted pinout + package images
+    ├── datasheets/            ← Cached downloaded PDFs (for the web UI / QR link)
+    ├── images/                ← Per-part generated assets (QR PNG, relabelled
+    │                            package SVG) + manual image uploads
     └── labels/                ← Generated PDF label sheets
 ```
 
@@ -86,15 +89,26 @@ component-labels/
 
 1. **Cache check** — query SQLite for existing record; if found, skip to step 5
 2. **API lookup** — authenticate with Nexar OAuth2, run GraphQL query for part data
-3. **Datasheet download** — fetch PDF to `output/datasheets/`
-4. **Image extraction:**
-   - Score all PDF pages by pinout keyword density + embedded image count
-   - Rasterize top 3 candidate pages to `output/images/<MPN>/pinout_candidate_N.png`
-   - Also attempt to extract a package/physical photo if present in the PDF
-   - Store best candidate as the default; allow manual override via web UI
-5. **Cache write** — store all data + image paths to SQLite
+3. **Datasheet download** — fetch PDF to `output/datasheets/`. The PDF is cached
+   only so the web UI can link a local copy; **nothing is extracted from it**.
+4. **Package resolution** (`core/label_builder.package_review_status()`):
+   - Match the part's package/case spec against the bundled outline SVG library
+     (`templates/packages/`, via `resolve_package_image()`)
+   - **Match found** → `status = 'ready'` (the SVG is the label's diagram)
+   - **No SVG for the package** → `status = 'needs_review'`,
+     `review_reason = "No package diagram found for '<package>'"`
+   - **No package spec at all** → `status = 'needs_review'`,
+     `review_reason = "Package not identified"`
+   - A part that already has a manually-set `package_image_path` stays `ready`
+     (a `--refresh` never downgrades a part the user already approved)
+5. **Cache write** — store all data + `status` / `review_reason` to SQLite
 6. **Label build** — select template based on component type, populate with data
 7. **PDF render** — place label(s) onto A4 sheet at correct grid position(s)
+
+> There is no automatic pinout/package **extraction** from datasheets — the old
+> keyword-scoring PDF rasteriser has been removed. Diagrams come from the curated
+> package-outline SVG library, and anything it can't match is surfaced for review
+> instead of being filled with a low-confidence guess.
 
 ---
 
@@ -111,10 +125,20 @@ component-labels/
 | specs_json | TEXT | full specs as JSON string |
 | datasheet_url | TEXT | |
 | datasheet_path | TEXT | local path to cached PDF |
-| pinout_image_path | TEXT | auto-extracted or manual override |
-| package_image_path | TEXT | physical package photo if available |
+| pinout_image_path | TEXT | manual override only (never auto-populated) |
+| package_image_path | TEXT | manual package image/photo override if set |
+| overrides_json | TEXT | saved web-editor state (template/headline/specs/…) |
+| status | TEXT | `'ready'` (default) or `'needs_review'` |
+| review_reason | TEXT | why it needs review (null once ready/approved) |
 | created_at | TEXT | ISO timestamp |
 | updated_at | TEXT | ISO timestamp |
+
+`status` / `review_reason` are written together by `upsert_component()`: pass a
+`status` to set both (the matching reason, or `None` to clear it on approval);
+omit `status` (the default) to leave both untouched, so partial updates such as a
+pinout override don't disturb the review flag. New DBs get the columns from the
+schema; existing DBs are migrated by an `ALTER TABLE … ADD COLUMN` (same pattern
+as `overrides_json`), which backfills old rows to `status = 'ready'`.
 
 ### `labels` table
 | Column | Type | Notes |
@@ -264,9 +288,14 @@ python main.py web
 Built with **Flask** + plain HTML/CSS/JS (no heavy frontend framework needed).
 
 Pages:
-- `/` — Dashboard: list of all cached components, search/filter by type
-- `/component/<mpn>` — Detail view: specs, pinout image, package image, label preview
-- `/component/<mpn>/edit` — Edit label: swap images, override specs, change template
+- `/` — Dashboard: cached components in two sections — **Needs review** (amber, at
+  the top, with each part's review reason + an *Edit & approve* button) and
+  **Ready** below; search/filter by type
+- `/component/<mpn>` — Detail view: specs, pinout image, package image, label
+  preview, and a review banner while the part is `needs_review`
+- `/component/<mpn>/edit` — Edit label: swap images, override specs, change
+  template; shows an **Approve** button (save + `status → ready`) while
+  `needs_review`
 - `/print` — Print job builder: select components, set start position, download PDF
 - `/settings` — Sheet geometry tweaks, colour map editor, API credentials
 
@@ -340,24 +369,40 @@ Notes that keep a replacement honest:
 
 ---
 
-## Pinout Image Extraction — Current Approach
+## Package Diagrams & the Review Workflow
 
-Implemented in `core/datasheet.py`:
-- Download datasheet PDF (cached: re-download only with `force=True`; response
-  is validated as a real PDF and written atomically)
-- Score each page: keyword frequency (pin, pinout, diagram, etc.) × weights +
-  embedded image count × 1.5
-- **Vector-pinout fallback:** if no page in the PDF has any embedded raster
-  image, pages are ranked by keyword density alone; zero-scored pages are never
-  returned (fewer than 3 candidates — or none, with a warning — instead of junk)
-- Rasterize top 3 candidates at 144 DPI (2× fitz.Matrix) →
-  `output/images/<MPN>/pinout_candidate_<rank>_p<page>.png`
-- Store top candidate as default pinout image
-- Possible future upgrade: pass rasterised pages to a vision model when the
-  keyword heuristic also fails
+There is **no datasheet image extraction**. Datasheets are still downloaded (for
+the cached-PDF link and to back the QR code), but every diagram on a label comes
+from a curated, bundled package-outline SVG library — never from rasterising a PDF.
 
-Manual override: user can supply their own image via CLI or web UI. This replaces
-the auto-extracted image in the DB without losing the original.
+**Automatic source — `core/label_builder.py`:**
+- `resolve_package_image(record)` maps the part's package/case spec (e.g.
+  "TO-92-3", "SOIC-8") to an SVG in `templates/packages/` via `config.PACKAGE_MAP`
+  (longest alias wins, so "sot235" → SOT-23-5 not SOT-23)
+- `package_image_path(record)` returns the effective package image: a manually
+  set `package_image_path` wins, otherwise the resolved outline (pin names
+  relabelled per component type via `config.PACKAGE_PIN_NAMES`)
+- `package_review_status(record)` decides the status the pipeline writes:
+  - SVG matched → `('ready', None)`
+  - package spec present but unmatched → `('needs_review', "No package diagram
+    found for '<package>'")`
+  - no package spec at all → `('needs_review', "Package not identified")`
+
+**Review / approval flow:**
+- The dashboard splits cached parts into a **Needs review** section (amber, at the
+  top, showing each part's `review_reason` and an *Edit & approve* button) and a
+  **Ready** section below
+- The web editor shows an **Approve** button only while the part is
+  `needs_review`. Approving saves the current editor state *and* flips
+  `status → 'ready'`, clearing `review_reason`. The intended fix is to pick a
+  package image (or upload one) and then approve
+- To add support for a missing package instead of approving one part at a time:
+  drop an SVG into `templates/packages/` and add its aliases to
+  `config.PACKAGE_MAP` — re-adding affected parts then resolves them to `ready`
+
+**Manual override** (unchanged): the user can supply their own pinout or package
+image via the CLI (`set-image`) or the web editor. `pinout_image_path` is now a
+manual-only column — the pipeline never writes it.
 
 ---
 
@@ -365,7 +410,8 @@ the auto-extracted image in the DB without losing the original.
 
 ```
 requests
-pymupdf          # fitz — PDF parsing and rasterization
+pymupdf          # fitz — legacy component_lookup.py prototype only (no longer
+                 # used by the active pipeline; safe to drop once that's deleted)
 weasyprint       # HTML/CSS → PDF rendering
 flask            # web UI
 python-dotenv    # .env credential loading
@@ -387,7 +433,8 @@ Implemented modules — signatures that differ from the prototype:
 
 - `core/cache.py` — full SQLite layer: `init_db()`, `upsert_component(mpn, **fields)`
   (COALESCE upsert: None fields preserve existing values, so it doubles as a
-  partial-update helper), `get_component`, `component_exists`, `list_components`,
+  partial-update helper; `status`/`review_reason` are a coupled pair — see the
+  schema notes), `get_component`, `component_exists`, `list_components`,
   `save_label`, `get_label`, `get_labels`, `get_latest_label`. All file paths
   stored project-root-relative.
 - `core/lookup.py` — `get_access_token(force_refresh=False)` caches the OAuth
@@ -395,17 +442,21 @@ Implemented modules — signatures that differ from the prototype:
   takes a token argument** (auth handled internally; 401 retried once with a
   fresh token); GraphQL-level errors raise RuntimeError instead of returning
   None. `find_datasheet_url(part)` and `print_specs(part, max_specs=15)` as before.
-- `core/datasheet.py` — `download_pdf(url, mpn, *, force=False, dest_path=None)
-  -> Path | None` (**was** `(url, dest_path) -> bool`): skips the download when
-  the file is already cached unless `force`, validates PDF magic bytes, writes
-  atomically. `datasheet_path_for(mpn)` returns the canonical cache path.
-  `extract_pinout_pages(pdf_path, mpn=None, *, output_dir=None, top_n=3)`
-  defaults output to `output/images/<MPN>/`. `score_page(page, count_images=True)`.
+- `core/datasheet.py` — download-only now. `download_pdf(url, mpn, *, force=False,
+  dest_path=None) -> Path | None` (**was** `(url, dest_path) -> bool`): skips the
+  download when the file is already cached unless `force`, validates PDF magic
+  bytes, writes atomically. `datasheet_path_for(mpn)` returns the canonical cache
+  path. The pinout extraction/scoring functions (`extract_pinout_pages`,
+  `score_page`, `_rank_candidate_pages`) and the `fitz`/PyMuPDF dependency have
+  been removed from this module.
 - `core/label_builder.py` — `build_label(mpn, overrides=None) -> str` renders a
   cached component to label HTML: template chosen via `config.type_template()`,
   key specs via `config.LABEL_SPECS`, QR code generated to the component's
   web-UI page, bar text colour picked by luminance. `overrides` lets the web UI
   substitute any context variable (special key `"template"` swaps the template).
+  Also owns package resolution: `resolve_package_image()`, `package_image_path()`,
+  and `package_review_status(record) -> (status, review_reason)` (the pipeline's
+  ready/needs_review decision).
 - `config.py` — paths, Nexar credentials (env only), sheet geometry, component
   type table (display name + colour + template), `LABEL_SPECS` key-spec table,
   `QR_HOST`.

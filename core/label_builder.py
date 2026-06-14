@@ -209,6 +209,38 @@ def resolve_package_image(part_record: dict[str, Any]) -> Path | None:
     return None
 
 
+def package_review_status(part_record: dict[str, Any]) -> tuple[str, str | None]:
+    """Decide a component's label status from package-diagram resolution.
+
+    Package outlines are the only automatic source of pinout/package diagrams
+    now (datasheet extraction has been removed), so a part is print-ready iff
+    its package resolves to a bundled SVG. Returns a (status, review_reason)
+    pair:
+
+      ("ready", None)
+          resolve_package_image() matched a bundled outline SVG.
+      ("needs_review", "No package diagram found for '<package>'")
+          the provider gave a package/case spec, but no SVG matches it — a new
+          outline should be drawn (or the part edited + approved by hand).
+      ("needs_review", "Package not identified")
+          the provider returned no package/case spec at all, so there is
+          nothing to match against.
+
+    Works on any record following the provider contract's specs shape, so it
+    suits both a raw lookup result and a cached record.
+    """
+    if resolve_package_image(part_record) is not None:
+        return "ready", None
+
+    pkg = _spec_value(
+        part_record.get("specs") or [],
+        ["supplierdevicepackage", "package", "case"],
+    )
+    if pkg:
+        return "needs_review", f"No package diagram found for '{pkg}'"
+    return "needs_review", "Package not identified"
+
+
 # Pin-name <text> elements in the package SVGs carry class="pin-name" so the
 # same outline can be relabelled for different parts (e.g. a TO-92 used as a
 # BJT "C B E" or a MOSFET "D G S") by a simple text substitution.

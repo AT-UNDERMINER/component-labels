@@ -1,5 +1,6 @@
 requests
-pymupdf
+pymupdf          # fitz — only used by the legacy component_lookup.py prototype now
+                 # (the active pipeline no longer extracts anything from PDFs)
 weasyprint
 flask
 python-dotenv

@@ -49,21 +49,48 @@
   {% endif %}
 </div>
 
+{% macro type_cell(c) %}<span class="dot" style="background:{{ type_colour(c.component_type) }}"></span>{{ type_display_name(c.component_type) }}{% endmacro %}
+
 {% if components %}
-<table class="grid">
-  <thead><tr><th>MPN</th><th>Type</th><th>Manufacturer</th><th>Description</th><th></th></tr></thead>
-  <tbody>
-  {% for c in components %}
-    <tr>
-      <td><a href="{{ url_for('component_detail', mpn=c.mpn) }}"><strong>{{ c.mpn }}</strong></a></td>
-      <td><span class="dot" style="background:{{ type_colour(c.component_type) }}"></span>{{ type_display_name(c.component_type) }}</td>
-      <td>{{ c.manufacturer or '—' }}</td>
-      <td class="muted ellipsis">{{ c.description or '' }}</td>
-      <td class="actions"><a href="{{ url_for('component_edit', mpn=c.mpn) }}">edit</a></td>
-    </tr>
-  {% endfor %}
-  </tbody>
-</table>
+
+  {% if needs_review %}
+  <section class="review-section">
+    <h2 class="review-title">⚠ Needs review <span class="review-badge">{{ needs_review|length }}</span></h2>
+    <p class="small review-note">No package diagram was matched automatically. Open the editor, set a package image, then approve.</p>
+    <table class="grid review">
+      <thead><tr><th>MPN</th><th>Type</th><th>Reason</th><th></th></tr></thead>
+      <tbody>
+      {% for c in needs_review %}
+        <tr>
+          <td><a href="{{ url_for('component_detail', mpn=c.mpn) }}"><strong>{{ c.mpn }}</strong></a></td>
+          <td>{{ type_cell(c) }}</td>
+          <td class="review-reason">{{ c.review_reason or 'Needs review' }}</td>
+          <td class="actions"><a class="btn small primary" href="{{ url_for('component_edit', mpn=c.mpn) }}">Edit &amp; approve</a></td>
+        </tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </section>
+  {% endif %}
+
+  {% if ready %}
+  <h2 class="ready-title">Ready <span class="muted">({{ ready|length }})</span></h2>
+  <table class="grid">
+    <thead><tr><th>MPN</th><th>Type</th><th>Manufacturer</th><th>Description</th><th></th></tr></thead>
+    <tbody>
+    {% for c in ready %}
+      <tr>
+        <td><a href="{{ url_for('component_detail', mpn=c.mpn) }}"><strong>{{ c.mpn }}</strong></a></td>
+        <td>{{ type_cell(c) }}</td>
+        <td>{{ c.manufacturer or '—' }}</td>
+        <td class="muted ellipsis">{{ c.description or '' }}</td>
+        <td class="actions"><a href="{{ url_for('component_edit', mpn=c.mpn) }}">edit</a></td>
+      </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  {% endif %}
+
 {% else %}
 <p class="empty">No components{% if type_filter %} of this type{% endif %} yet.
   Add some with <code>python main.py add &lt;MPN&gt;</code>.</p>

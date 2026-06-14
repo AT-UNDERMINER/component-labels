@@ -4,7 +4,14 @@
       "Bash(python -c \"import qrcode, PIL; print\\('qrcode OK, pillow', PIL.__version__\\)\")",
       "Bash(pip install *)",
       "Bash(PYTHONIOENCODING=utf-8 python _e2e.py)",
-      "Bash(cd \"c:/Users/djtur/OneDrive/Projects/Zip-Lock Organisers/Electronics Data Scrapper\" && rm -rf _e2e _e2e.py /tmp/cl_server.log && echo \"cleaned\" && git status --short)"
+      "Bash(cd \"c:/Users/djtur/OneDrive/Projects/Zip-Lock Organisers/Electronics Data Scrapper\" && rm -rf _e2e _e2e.py /tmp/cl_server.log && echo \"cleaned\" && git status --short)",
+      "Bash(ls -la db/)",
+      "Bash(python -c \"import sqlite3; c=sqlite3.connect\\('db/components.db'\\); print\\([r[1] for r in c.execute\\('PRAGMA table_info\\(components\\)'\\)]\\); print\\('rows:', c.execute\\('SELECT COUNT\\(*\\) FROM components'\\).fetchone\\(\\)[0]\\)\")",
+      "Bash(cp db/components.db db/components.db.bak)",
+      "Bash(python -c \"import sqlite3; c=sqlite3.connect\\('db/components.db'\\); [print\\(r\\) for r in c.execute\\('SELECT mpn, component_type FROM components'\\)]\")",
+      "Bash(python -c ' *)",
+      "Bash(python -c \"import weasyprint; print\\('weasyprint OK'\\)\")",
+      "Bash(python -m py_compile core/datasheet.py core/cache.py core/label_builder.py main.py app.py)"
     ],
     "additionalDirectories": [
       "\\tmp"

@@ -180,9 +180,17 @@ def index():
     else:
         components = all_components
 
+    # Split the (filtered) list into the dashboard's two sections. Anything not
+    # explicitly 'needs_review' — including a NULL status from a pre-migration
+    # row — counts as ready, so a component can never silently disappear.
+    needs_review = [c for c in components if c.get("status") == "needs_review"]
+    ready = [c for c in components if c.get("status") != "needs_review"]
+
     return render_template(
         "dashboard.html",
         components=components,
+        needs_review=needs_review,
+        ready=ready,
         counts=counts,
         total=len(all_components),
         type_filter=type_filter,
@@ -421,11 +429,18 @@ def component_edit(mpn: str):
         if subline:
             overrides["subline"] = subline
 
+        # "Approve" saves the edits AND clears the review flag: status -> ready,
+        # review_reason -> None. A plain save passes status=None, which the
+        # upsert preserves (so a needs_review part stays flagged until approved).
+        approve = _is_checked(request.form.get("approve"))
+
         cache.upsert_component(
             mpn,
             overrides=overrides,
             pinout_image_path=(request.form.get("pinout_image") or "").strip() or None,
             package_image_path=(request.form.get("package_image") or "").strip() or None,
+            status="ready" if approve else None,
+            review_reason=None,
         )
         _rebuild_label(mpn)
         return jsonify(ok=True, url=url_for("component_detail", mpn=mpn))
