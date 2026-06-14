@@ -127,6 +127,7 @@ IMAGE_DIR = OUTPUT_DIR / "images"           # extracted pinout / package images
 LABEL_DIR = OUTPUT_DIR / "labels"           # generated PDF label sheets
 
 TEMPLATE_DIR = PROJECT_ROOT / "templates"   # Jinja2 label templates + shared CSS
+PACKAGE_DIR = TEMPLATE_DIR / "packages"     # bundled package outline SVGs
 
 
 # ── Nexar / Octopart API ──────────────────────────────────────────────────────
@@ -231,17 +232,42 @@ def type_template(component_type: str | None) -> str:
     return entry["template"] if entry else DEFAULT_TEMPLATE
 
 
+# ── Information hierarchy: what the headline (largest text) should be ──────────
+# The headline is the fastest way to identify a part at a glance, and that
+# differs by type. Passives (resistor, caps, zener, inductor) are identified by
+# their value, so the value leads and the MPN is secondary. Actives, LEDs and
+# connectors are identified by their part number, so the MPN leads with a short
+# descriptor (polarity / channel / colour / pins·pitch) as the secondary line.
+#
+# Types listed here lead with the MPN; every other type leads with its value.
+# label_builder.py reads this to fill the generic `headline`/`subline` fields.
+MPN_HEADLINE_TYPES: set[str] = {
+    "bjt_transistor",
+    "mosfet",
+    "ic_opamp",
+    "led",
+    "connector",
+}
+
+
 # ── Key specs per component type (brief: "Key Specs Per Component Type") ──────
 # Which Nexar spec attributes each label surfaces. Match terms are checked,
 # normalised to lowercase alphanumerics, as substrings of the API attribute's
 # shortname/name — list the most specific candidates first.
 #
-#   value   matchers for the simple label's big value line (e.g. "10 kΩ")
-#   specs   (display label, matchers) — the first 3 found are shown, in
-#           this order, so later entries act as stand-ins for missing ones
+#   value       matchers for the headline value line on value-led types
+#               (e.g. "10 kΩ"); see MPN_HEADLINE_TYPES for the distinction
+#   value2      optional second value joined onto the headline with a space
+#               (e.g. a capacitor's voltage rating → "100 µF 50 V")
+#   descriptor  matchers for the secondary line on MPN-led types
+#               (e.g. a BJT's polarity, a MOSFET's channel, an LED's colour)
+#   specs       (display label, matchers) — the first 3 found are shown, in
+#               this order, so later entries act as stand-ins for missing ones
 #   pins / pitch   matchers for the connector template's stat boxes
 #
 # A type with no entry here simply gets no specs row — nothing breaks.
+# Note: a value promoted to the descriptor is deliberately left out of `specs`
+# so it is not shown twice on the same label.
 
 LABEL_SPECS: dict[str, dict] = {
     "resistor": {
@@ -252,17 +278,21 @@ LABEL_SPECS: dict[str, dict] = {
         ],
     },
     "capacitor_electrolytic": {
+        # Headline combines capacitance + voltage (e.g. "100 µF 50 V"), so the
+        # voltage is promoted to value2 and left out of the specs row below.
         "value": ["capacitance"],
+        "value2": ["voltagerating", "ratedvoltage", "voltage"],
         "specs": [
-            ("Voltage", ["voltagerating", "ratedvoltage", "voltage"]),
             ("Temp", ["operatingtemperature", "temperature"]),
+            ("Tolerance", ["tolerance"]),
         ],
     },
     "capacitor_ceramic": {
         "value": ["capacitance"],
+        "value2": ["voltagerating", "ratedvoltage", "voltage"],
         "specs": [
-            ("Voltage", ["voltagerating", "ratedvoltage", "voltage"]),
             ("Dielectric", ["dielectric", "temperaturecoefficient"]),
+            ("Tolerance", ["tolerance"]),
         ],
     },
     "zener_diode": {
@@ -273,7 +303,9 @@ LABEL_SPECS: dict[str, dict] = {
         ],
     },
     "led": {
-        "value": ["colour", "color", "wavelength"],
+        # MPN-led: the colour/wavelength is the secondary descriptor, not the
+        # headline, so it lives under "descriptor" rather than "value".
+        "descriptor": ["colour", "color", "wavelength"],
         "specs": [
             ("Forward V", ["forwardvoltage"]),
             ("Forward I", ["forwardcurrent"]),
@@ -287,16 +319,18 @@ LABEL_SPECS: dict[str, dict] = {
         ],
     },
     "bjt_transistor": {
+        # Polarity (NPN/PNP) is the headline descriptor, so it is omitted here.
+        "descriptor": ["polarity", "transistortype"],
         "specs": [
-            ("Polarity", ["polarity", "transistortype"]),
             ("Vceo", ["collectoremittervoltage", "vceo"]),
             ("Ic max", ["collectorcurrent", "icmax"]),
             ("hFE", ["dccurrentgain", "hfe"]),
         ],
     },
     "mosfet": {
+        # Channel (N/P) is the headline descriptor, so it is omitted here.
+        "descriptor": ["channeltype", "fettype", "transistortype"],
         "specs": [
-            ("Channel", ["channeltype", "fettype", "transistortype"]),
             ("Vds", ["drainsourcevoltage", "vds"]),
             ("Id max", ["continuousdraincurrent", "draincurrent"]),
             ("Rds(on)", ["rdson", "drainsourceresistance"]),
@@ -318,4 +352,67 @@ LABEL_SPECS: dict[str, dict] = {
             ("Temp", ["operatingtemperature"]),
         ],
     },
+}
+
+
+# ── Package → diagram SVG map ─────────────────────────────────────────────────
+# Maps a component's package/case name (as it appears in the Nexar specs, e.g.
+# "TO-92-3", "SOIC-8", "0805 (2012 Metric)") to a bundled outline SVG in
+# templates/packages/. core.label_builder.resolve_package_image() normalises the
+# spec value to lowercase alphanumerics and matches an alias as a substring,
+# trying the longest alias first so "sot235" picks SOT-23-5 over SOT-23. List
+# every spelling a provider might use; add a row + an SVG to support a new
+# package — no other code changes needed.
+
+PACKAGE_MAP: dict[str, str] = {
+    # ── Through-hole ──
+    "TO-92": "TO-92.svg",
+    "TO92": "TO-92.svg",
+    "TO-220": "TO-220.svg",
+    "TO220": "TO-220.svg",
+    "TO-3": "TO-3.svg",
+    "TO3": "TO-3.svg",
+    "DO-41": "DO-41.svg",
+    "DO41": "DO-41.svg",
+    "DO-204AL": "DO-41.svg",            # JEDEC name for DO-41
+    "DIP-8": "DIP-8.svg",
+    "PDIP-8": "DIP-8.svg",
+    "8-DIP": "DIP-8.svg",
+    "DIP-14": "DIP-14.svg",
+    "PDIP-14": "DIP-14.svg",
+    "14-DIP": "DIP-14.svg",
+    "DIP-16": "DIP-16.svg",
+    "PDIP-16": "DIP-16.svg",
+    "16-DIP": "DIP-16.svg",
+    # ── Surface-mount ──
+    "SOT-23-5": "SOT-23-5.svg",         # must precede SOT-23 (longer alias wins)
+    "SOT-25": "SOT-23-5.svg",           # 5-lead SOT-23 alias
+    "SOT-23": "SOT-23.svg",
+    "SOT23": "SOT-23.svg",
+    "SOT-223": "SOT-223.svg",
+    "SOT223": "SOT-223.svg",
+    "SOIC-8": "SOIC-8.svg",
+    "SOIC8": "SOIC-8.svg",
+    "SO-8": "SOIC-8.svg",
+    "SOP-8": "SOIC-8.svg",
+    "0805": "0805.svg",
+    "2012": "0805.svg",                 # metric code for 0805
+    "0603": "0603.svg",
+    "1608": "0603.svg",                 # metric code for 0603
+}
+
+
+# ── Package pin-name relabelling ──────────────────────────────────────────────
+# A shared package outline (e.g. TO-92.svg) carries default class="pin-name"
+# labels; label_builder relabels them per component type at render time via
+# substitute_pin_names(). Keyed by (component_type, svg filename); the value is
+# the pin names in pin order. A (type, package) pair not listed keeps the SVG's
+# default labels — e.g. an op-amp DIP-8 needs no entry, as that outline only
+# carries pin numbers (1–8) and no names.
+
+PACKAGE_PIN_NAMES: dict[tuple[str, str], list[str]] = {
+    ("bjt_transistor", "TO-92.svg"):  ["C", "B", "E"],
+    ("mosfet",         "TO-92.svg"):  ["D", "G", "S"],
+    ("mosfet",         "TO-220.svg"): ["G", "D", "S"],
+    ("mosfet",         "SOT-23.svg"): ["G", "S", "D"],
 }

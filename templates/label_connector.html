@@ -2,12 +2,17 @@
   label_connector.html — 45x45mm label for connectors (JST etc.).
   Like the complex label, but pin count and pitch get top billing.
 
+  Information hierarchy: the MPN is the headline (largest text), with a short
+  "<n> pins · <pitch>" descriptor as the secondary line. The pin count and
+  pitch are also repeated as the big stat boxes below — the connector's
+  defining feature — built by label_builder.py.
+
   Context variables (injected by core/label_builder.py):
     type_colour      hex colour for the top bar — config.type_colour()
     bar_text_colour  "#000000"/"#ffffff", picked by background luminance
     type_name        display name for the bar — config.type_display_name()
-    mpn            manufacturer part number
-    description    short description, one line (truncated with ellipsis)
+    headline       MPN — the part number, shown largest
+    subline        descriptor, e.g. "2 pins · 2.50 mm"
     pin_count      number of positions, e.g. "2" (string or int)
     pitch          pitch with unit, e.g. "2.50 mm"
     specs          remaining specs, list of {"name": str, "value": str};
@@ -36,8 +41,8 @@
 
     <div class="head">
       <div class="id">
-        <div class="mpn">{{ mpn }}</div>
-        <div class="desc">{{ description }}</div>
+        <div class="headline">{{ headline }}</div>
+        <div class="subline">{{ subline }}</div>
       </div>
       {% if package_image %}
       <div class="pkg"><img src="{{ package_image }}" alt="package"></div>

@@ -2,12 +2,17 @@
   label_complex.html — 45x45mm label for complex components
   (bjt_transistor, mosfet, ic_opamp).
 
+  Information hierarchy: the MPN is the headline (largest text) because these
+  parts are identified by part number, with a short descriptor as the
+  secondary line — a BJT's polarity (NPN/PNP), a MOSFET's channel (N/P), or
+  the description for ICs. label_builder.py fills headline/subline.
+
   Context variables (injected by core/label_builder.py):
     type_colour      hex colour for the top bar — config.type_colour()
     bar_text_colour  "#000000"/"#ffffff", picked by background luminance
     type_name        display name for the bar — config.type_display_name()
-    mpn            manufacturer part number
-    description    short description, one line (truncated with ellipsis)
+    headline       MPN — the part number, shown largest
+    subline        key descriptor (polarity / channel) or description
     specs          list of {"name": str, "value": str}; first 3 shown
     package_image  path/URI of package photo, or None (column collapses)
     pinout_image   path/URI of pinout PNG, or None (placeholder text shown)
@@ -32,8 +37,8 @@
 
     <div class="head">
       <div class="id">
-        <div class="mpn">{{ mpn }}</div>
-        <div class="desc">{{ description }}</div>
+        <div class="headline">{{ headline }}</div>
+        <div class="subline">{{ subline }}</div>
       </div>
       {% if package_image %}
       <div class="pkg"><img src="{{ package_image }}" alt="package"></div>
