@@ -44,6 +44,7 @@ CREATE TABLE IF NOT EXISTS components (
     datasheet_path     TEXT,
     pinout_image_path  TEXT,
     package_image_path TEXT,
+    overrides_json     TEXT,
     created_at         TEXT    NOT NULL,
     updated_at         TEXT    NOT NULL
 );
@@ -94,6 +95,11 @@ def _connect() -> sqlite3.Connection:
     conn.row_factory = sqlite3.Row          # rows behave like dicts
     conn.execute("PRAGMA foreign_keys = ON")  # enforce the labels→components FK
     conn.executescript(SCHEMA_SQL)  # IF NOT EXISTS throughout — idempotent and cheap
+    # Lightweight migration: add columns introduced after a DB was first created
+    # (CREATE TABLE IF NOT EXISTS won't alter an existing table).
+    existing = {r["name"] for r in conn.execute("PRAGMA table_info(components)")}
+    if "overrides_json" not in existing:
+        conn.execute("ALTER TABLE components ADD COLUMN overrides_json TEXT")
     return conn
 
 
@@ -115,6 +121,8 @@ def _row_to_component(row: sqlite3.Row | None) -> dict[str, Any] | None:
     d = dict(row)
     raw = d.get("specs_json")
     d["specs"] = json.loads(raw) if raw else None
+    ov = d.get("overrides_json")
+    d["overrides"] = json.loads(ov) if ov else None
     return d
 
 
@@ -150,6 +158,7 @@ def upsert_component(  # pylint: disable=too-many-arguments
     datasheet_path: str | Path | None = None,
     pinout_image_path: str | Path | None = None,
     package_image_path: str | Path | None = None,
+    overrides: Any | None = None,
 ) -> dict[str, Any]:
     """Insert a new component or update the existing one (keyed on mpn).
 
@@ -164,6 +173,9 @@ def upsert_component(  # pylint: disable=too-many-arguments
     """
     now = _utc_now_iso()
     specs_json = json.dumps(specs, ensure_ascii=False) if specs is not None else None
+    overrides_json = (
+        json.dumps(overrides, ensure_ascii=False) if overrides is not None else None
+    )
 
     with _db() as conn:
         conn.execute(
@@ -171,8 +183,8 @@ def upsert_component(  # pylint: disable=too-many-arguments
             INSERT INTO components AS c (
                 mpn, manufacturer, component_type, description, specs_json,
                 datasheet_url, datasheet_path, pinout_image_path,
-                package_image_path, created_at, updated_at
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                package_image_path, overrides_json, created_at, updated_at
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             ON CONFLICT(mpn) DO UPDATE SET
                 manufacturer       = COALESCE(excluded.manufacturer,       c.manufacturer),
                 component_type     = COALESCE(excluded.component_type,     c.component_type),
@@ -182,6 +194,7 @@ def upsert_component(  # pylint: disable=too-many-arguments
                 datasheet_path     = COALESCE(excluded.datasheet_path,     c.datasheet_path),
                 pinout_image_path  = COALESCE(excluded.pinout_image_path,  c.pinout_image_path),
                 package_image_path = COALESCE(excluded.package_image_path, c.package_image_path),
+                overrides_json     = COALESCE(excluded.overrides_json,     c.overrides_json),
                 updated_at         = excluded.updated_at
             """,
             (
@@ -194,6 +207,7 @@ def upsert_component(  # pylint: disable=too-many-arguments
                 _relativize(datasheet_path),
                 _relativize(pinout_image_path),
                 _relativize(package_image_path),
+                overrides_json,
                 now,
                 now,
             ),

@@ -2,7 +2,12 @@
   "permissions": {
     "allow": [
       "Bash(python -c \"import qrcode, PIL; print\\('qrcode OK, pillow', PIL.__version__\\)\")",
-      "Bash(pip install *)"
+      "Bash(pip install *)",
+      "Bash(PYTHONIOENCODING=utf-8 python _e2e.py)",
+      "Bash(cd \"c:/Users/djtur/OneDrive/Projects/Zip-Lock Organisers/Electronics Data Scrapper\" && rm -rf _e2e _e2e.py /tmp/cl_server.log && echo \"cleaned\" && git status --short)"
+    ],
+    "additionalDirectories": [
+      "\\tmp"
     ]
   }
 }

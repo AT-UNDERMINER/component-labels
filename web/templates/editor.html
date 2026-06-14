@@ -1,0 +1,93 @@
+{% extends "base.html" %}
+{% block title %}Edit {{ c.mpn }} — Component Labels{% endblock %}
+{% block content %}
+<p class="crumb"><a href="{{ url_for('component_detail', mpn=c.mpn) }}">&larr; {{ c.mpn }}</a></p>
+<h1>Label editor <span class="muted">&middot; {{ c.mpn }}</span></h1>
+
+<div class="editor"
+     data-label-url="{{ url_for('label_html', mpn=c.mpn) }}"
+     data-save-url="{{ url_for('component_edit', mpn=c.mpn) }}"
+     data-upload-url="{{ url_for('upload_image', mpn=c.mpn) }}">
+
+  <!-- LEFT: live preview -->
+  <section class="panel editor-preview">
+    <h2>Live preview <span class="muted small" id="preview-flash"></span></h2>
+    <div class="label-preview">
+      <iframe id="preview-frame" title="label preview" scrolling="no"></iframe>
+    </div>
+    <p class="muted small">Live render of the actual template at 3&times; scale (45&times;45&nbsp;mm).</p>
+  </section>
+
+  <!-- RIGHT: controls -->
+  <section class="panel editor-controls">
+    <div class="ctl">
+      <label for="f-template">Template</label>
+      <select id="f-template">
+        {% for val, name in template_options %}
+        <option value="{{ val }}" {% if val == current_template %}selected{% endif %}>{{ name }}</option>
+        {% endfor %}
+      </select>
+    </div>
+
+    <div class="ctl">
+      <label for="f-headline">Headline</label>
+      <input type="text" id="f-headline" value="{{ headline }}" autocomplete="off">
+    </div>
+    <div class="ctl">
+      <label for="f-value">Value <span class="muted">(second line)</span></label>
+      <input type="text" id="f-value" value="{{ subline }}" autocomplete="off">
+    </div>
+
+    <div class="ctl">
+      <label>Image
+        <span class="seg" role="tablist">
+          <button type="button" class="seg-btn active" data-slot="pinout">Pinout</button>
+          <button type="button" class="seg-btn" data-slot="package">Package</button>
+        </span>
+      </label>
+      <div class="gallery" id="gallery">
+        {% for item in gallery %}
+        <button type="button" class="thumb-btn" data-path="{{ item.path }}" title="{{ item.name }}">
+          <img src="{{ item.url }}" alt="{{ item.name }}" loading="lazy">
+          <span>{{ item.name }}</span>
+        </button>
+        {% else %}
+        <p class="muted small">No images yet — upload one below.</p>
+        {% endfor %}
+      </div>
+      <label class="upload">
+        <input type="file" id="f-upload" accept="image/*,.svg" hidden>
+        <span class="btn small">Upload image…</span>
+      </label>
+    </div>
+
+    <div class="ctl">
+      <label>Specs <span class="muted">(drag to reorder · toggle to show · max 3)</span></label>
+      <ul class="spec-list" id="spec-list">
+        {% for s in spec_rows %}
+        <li class="spec-row {% if s.active %}active{% endif %}" draggable="true"
+            data-name="{{ s.name }}" data-value="{{ s.value }}">
+          <span class="drag" aria-hidden="true">⋮⋮</span>
+          <span class="spec-text"><b>{{ s.name }}</b><i>{{ s.value }}</i></span>
+          <label class="switch"><input type="checkbox" {% if s.active %}checked{% endif %}><span></span></label>
+        </li>
+        {% else %}
+        <li class="spec-row"><span class="muted small">No specs cached for this part.</span></li>
+        {% endfor %}
+      </ul>
+    </div>
+
+    <div class="form-actions">
+      <button type="button" class="btn primary" id="save-btn">Save &amp; rebuild label</button>
+      <a class="btn" href="{{ url_for('component_detail', mpn=c.mpn) }}">Cancel</a>
+      <span id="save-flash" class="small"></span>
+    </div>
+  </section>
+</div>
+
+<script type="application/json" id="editor-init">{{ {"pinout": pinout_sel, "package": package_sel}|tojson }}</script>
+{% endblock %}
+
+{% block scripts %}
+<script src="{{ url_for('static', filename='editor.js') }}" defer></script>
+{% endblock %}
