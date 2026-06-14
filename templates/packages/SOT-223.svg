@@ -1,0 +1,26 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="40mm" height="40mm" viewBox="0 0 40 40">
+  <!-- SOT-223 (3 leads + large tab). The tab is electrically the centre pin
+       (drain on a MOSFET). Default names G D S; swap via substitute_pin_names(). -->
+  <rect width="40" height="40" fill="#ffffff"/>
+  <text x="20" y="5.2" text-anchor="middle" font-family="DejaVu Sans, Arial, sans-serif" font-size="2.8" font-weight="bold" fill="#111">SOT-223</text>
+  <g fill="none" stroke="#111" stroke-width="0.6" stroke-linecap="round" stroke-linejoin="round">
+    <rect x="11" y="9" width="18" height="6" rx="0.6"/>
+    <rect x="9" y="15" width="22" height="9" rx="0.6"/>
+    <line x1="14" y1="24" x2="14" y2="28"/>
+    <line x1="20" y1="24" x2="20" y2="28"/>
+    <line x1="26" y1="24" x2="26" y2="28"/>
+  </g>
+  <text x="20" y="13" text-anchor="middle" font-family="DejaVu Sans, Arial, sans-serif" font-size="1.9" fill="#555">TAB</text>
+  <g font-family="DejaVu Sans, Arial, sans-serif" text-anchor="middle" fill="#111">
+    <g font-size="2">
+      <text x="14" y="31">1</text>
+      <text x="20" y="31">2</text>
+      <text x="26" y="31">3</text>
+    </g>
+    <g font-size="2.6" font-weight="bold">
+      <text class="pin-name" x="14" y="34.6">G</text>
+      <text class="pin-name" x="20" y="34.6">D</text>
+      <text class="pin-name" x="26" y="34.6">S</text>
+    </g>
+  </g>
+</svg>

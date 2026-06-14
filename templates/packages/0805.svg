@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="40mm" height="40mm" viewBox="0 0 40 40">
+  <!-- 0805 (imperial) / 2012 (metric) two-terminal chip — resistor or MLCC.
+       Non-polar, so no pin names; the dark ends are the solder terminations. -->
+  <rect width="40" height="40" fill="#ffffff"/>
+  <text x="20" y="11" text-anchor="middle" font-family="DejaVu Sans, Arial, sans-serif" font-size="3.4" font-weight="bold" fill="#111">0805</text>
+  <g stroke="#111" stroke-width="0.6" stroke-linejoin="round">
+    <rect x="9" y="16" width="22" height="9" rx="1" fill="none"/>
+    <rect x="9" y="16" width="3.6" height="9" fill="#111"/>
+    <rect x="27.4" y="16" width="3.6" height="9" fill="#111"/>
+  </g>
+  <g font-family="DejaVu Sans, Arial, sans-serif" text-anchor="middle" fill="#555" font-size="2.1">
+    <text x="20" y="31">2012 metric</text>
+    <text x="20" y="35">2.0 &#215; 1.25 mm</text>
+  </g>
+</svg>

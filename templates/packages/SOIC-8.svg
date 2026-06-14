@@ -1,0 +1,32 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="40mm" height="40mm" viewBox="0 0 40 40">
+  <!-- SOIC-8 (8-lead SMD). Pin 1 at top-left (notch + dot); numbering runs
+       down the left then up the right. IC pin names are part-specific. -->
+  <rect width="40" height="40" fill="#ffffff"/>
+  <text x="20" y="6" text-anchor="middle" font-family="DejaVu Sans, Arial, sans-serif" font-size="2.8" font-weight="bold" fill="#111">SOIC-8</text>
+  <g fill="none" stroke="#111" stroke-width="0.6" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M12 9 L17 9 A3 1.8 0 0 1 23 9 L28 9 L28 33 L12 33 Z"/>
+    <line x1="10" y1="12" x2="12" y2="12"/>
+    <line x1="10" y1="18" x2="12" y2="18"/>
+    <line x1="10" y1="24" x2="12" y2="24"/>
+    <line x1="10" y1="30" x2="12" y2="30"/>
+    <line x1="28" y1="12" x2="30" y2="12"/>
+    <line x1="28" y1="18" x2="30" y2="18"/>
+    <line x1="28" y1="24" x2="30" y2="24"/>
+    <line x1="28" y1="30" x2="30" y2="30"/>
+  </g>
+  <circle cx="14.8" cy="13" r="0.85" fill="#111"/>
+  <g font-family="DejaVu Sans, Arial, sans-serif" font-size="2.1" fill="#111">
+    <g text-anchor="end">
+      <text x="9" y="12.7">1</text>
+      <text x="9" y="18.7">2</text>
+      <text x="9" y="24.7">3</text>
+      <text x="9" y="30.7">4</text>
+    </g>
+    <g text-anchor="start">
+      <text x="31" y="12.7">8</text>
+      <text x="31" y="18.7">7</text>
+      <text x="31" y="24.7">6</text>
+      <text x="31" y="30.7">5</text>
+    </g>
+  </g>
+</svg>

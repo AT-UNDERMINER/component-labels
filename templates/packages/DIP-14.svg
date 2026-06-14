@@ -1,0 +1,43 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="40mm" height="40mm" viewBox="0 0 40 40">
+  <!-- DIP-14 through-hole IC. Pin 1 at top-left (notch + dot). -->
+  <rect width="40" height="40" fill="#ffffff"/>
+  <text x="20" y="5.5" text-anchor="middle" font-family="DejaVu Sans, Arial, sans-serif" font-size="2.8" font-weight="bold" fill="#111">DIP-14</text>
+  <g fill="none" stroke="#111" stroke-width="0.55" stroke-linejoin="round">
+    <path d="M11 7 L17 7 A3 1.8 0 0 1 23 7 L29 7 L29 38 L11 38 Z"/>
+    <line x1="9" y1="9.21" x2="11" y2="9.21"/>
+    <line x1="9" y1="13.64" x2="11" y2="13.64"/>
+    <line x1="9" y1="18.07" x2="11" y2="18.07"/>
+    <line x1="9" y1="22.5" x2="11" y2="22.5"/>
+    <line x1="9" y1="26.93" x2="11" y2="26.93"/>
+    <line x1="9" y1="31.36" x2="11" y2="31.36"/>
+    <line x1="9" y1="35.79" x2="11" y2="35.79"/>
+    <line x1="29" y1="9.21" x2="31" y2="9.21"/>
+    <line x1="29" y1="13.64" x2="31" y2="13.64"/>
+    <line x1="29" y1="18.07" x2="31" y2="18.07"/>
+    <line x1="29" y1="22.5" x2="31" y2="22.5"/>
+    <line x1="29" y1="26.93" x2="31" y2="26.93"/>
+    <line x1="29" y1="31.36" x2="31" y2="31.36"/>
+    <line x1="29" y1="35.79" x2="31" y2="35.79"/>
+  </g>
+  <circle cx="14" cy="10.1" r="0.85" fill="#111"/>
+  <g font-family="DejaVu Sans, Arial, sans-serif" font-size="2" fill="#111">
+    <g text-anchor="end">
+      <text x="8" y="9.9">1</text>
+      <text x="8" y="14.3">2</text>
+      <text x="8" y="18.8">3</text>
+      <text x="8" y="23.2">4</text>
+      <text x="8" y="27.6">5</text>
+      <text x="8" y="32.1">6</text>
+      <text x="8" y="36.5">7</text>
+    </g>
+    <g text-anchor="start">
+      <text x="32" y="9.9">14</text>
+      <text x="32" y="14.3">13</text>
+      <text x="32" y="18.8">12</text>
+      <text x="32" y="23.2">11</text>
+      <text x="32" y="27.6">10</text>
+      <text x="32" y="32.1">9</text>
+      <text x="32" y="36.5">8</text>
+    </g>
+  </g>
+</svg>

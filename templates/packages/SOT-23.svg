@@ -1,0 +1,24 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="40mm" height="40mm" viewBox="0 0 40 40">
+  <!-- SOT-23 (3-lead SMD). Pins 1,2 bottom, pin 3 top. Default names are BJT
+       (B E C); swap via substitute_pin_names() for MOSFETs etc. -->
+  <rect width="40" height="40" fill="#ffffff"/>
+  <text x="20" y="5.5" text-anchor="middle" font-family="DejaVu Sans, Arial, sans-serif" font-size="2.8" font-weight="bold" fill="#111">SOT-23</text>
+  <g fill="none" stroke="#111" stroke-width="0.6" stroke-linecap="round" stroke-linejoin="round">
+    <rect x="14" y="15" width="12" height="10" rx="0.6"/>
+    <line x1="16.5" y1="25" x2="16.5" y2="28"/>
+    <line x1="23.5" y1="25" x2="23.5" y2="28"/>
+    <line x1="20" y1="15" x2="20" y2="12"/>
+  </g>
+  <g font-family="DejaVu Sans, Arial, sans-serif" text-anchor="middle" fill="#111">
+    <g font-size="2">
+      <text x="16.5" y="30.8">1</text>
+      <text x="23.5" y="30.8">2</text>
+      <text x="20" y="11">3</text>
+    </g>
+    <g font-size="2.6" font-weight="bold">
+      <text class="pin-name" x="16.5" y="34.2">B</text>
+      <text class="pin-name" x="23.5" y="34.2">E</text>
+      <text class="pin-name" x="20" y="8.4">C</text>
+    </g>
+  </g>
+</svg>

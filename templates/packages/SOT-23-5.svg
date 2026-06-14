@@ -1,0 +1,22 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="40mm" height="40mm" viewBox="0 0 40 40">
+  <!-- SOT-23-5 (5-lead SMD): pins 1,2,3 along the bottom, 4,5 along the top.
+       Pin names are part-specific, so only numbers are shown. -->
+  <rect width="40" height="40" fill="#ffffff"/>
+  <text x="20" y="6" text-anchor="middle" font-family="DejaVu Sans, Arial, sans-serif" font-size="2.8" font-weight="bold" fill="#111">SOT-23-5</text>
+  <g fill="none" stroke="#111" stroke-width="0.6" stroke-linecap="round" stroke-linejoin="round">
+    <rect x="13" y="15" width="14" height="10" rx="0.6"/>
+    <line x1="15.5" y1="25" x2="15.5" y2="28"/>
+    <line x1="20" y1="25" x2="20" y2="28"/>
+    <line x1="24.5" y1="25" x2="24.5" y2="28"/>
+    <line x1="17" y1="15" x2="17" y2="12"/>
+    <line x1="23" y1="15" x2="23" y2="12"/>
+  </g>
+  <circle cx="15.5" cy="22.5" r="0.8" fill="#111"/>
+  <g font-family="DejaVu Sans, Arial, sans-serif" text-anchor="middle" fill="#111" font-size="2">
+    <text x="15.5" y="31">1</text>
+    <text x="20" y="31">2</text>
+    <text x="24.5" y="31">3</text>
+    <text x="23" y="11">4</text>
+    <text x="17" y="11">5</text>
+  </g>
+</svg>
