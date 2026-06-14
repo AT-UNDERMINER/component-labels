@@ -26,6 +26,14 @@
      the label width via cqi units (see .type-bar). Renderers without
      container-query support simply ignore this and use the mm fallback. */
   container-type: inline-size;
+  /* Safe zone (print): the print renderer sets --safe-scale (<1) on the cell
+     so the whole 45mm artwork is scaled into the safe area and centred,
+     insetting all text/images from the trim edge. --safe-zone carries the same
+     inset in mm. Both are unset in the browser preview / editor, so this is
+     scale(1) — i.e. exactly 45×45mm, unchanged — everywhere but the PDF sheet. */
+  --safe-zone: 0mm;
+  transform: scale(var(--safe-scale, 1));
+  transform-origin: center center;
 }
 
 img { display: block; }

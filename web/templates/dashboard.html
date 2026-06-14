@@ -50,6 +50,7 @@
 </div>
 
 {% macro type_cell(c) %}<span class="dot" style="background:{{ type_colour(c.component_type) }}"></span>{{ type_display_name(c.component_type) }}{% endmacro %}
+{% macro sort_th(key, label) %}<th class="sortable" data-key="{{ key }}" scope="col" role="button" tabindex="0" aria-label="Sort by {{ label }}">{{ label }}<span class="sort-ind" aria-hidden="true"></span></th>{% endmacro %}
 
 {% if components %}
 
@@ -57,11 +58,11 @@
   <section class="review-section">
     <h2 class="review-title">⚠ Needs review <span class="review-badge">{{ needs_review|length }}</span></h2>
     <p class="small review-note">No package diagram was matched automatically. Open the editor, set a package image, then approve.</p>
-    <table class="grid review">
-      <thead><tr><th>MPN</th><th>Type</th><th>Reason</th><th></th></tr></thead>
+    <table class="grid review js-sortable">
+      <thead><tr>{{ sort_th('mpn', 'MPN') }}{{ sort_th('type', 'Type') }}<th>Reason</th><th></th></tr></thead>
       <tbody>
       {% for c in needs_review %}
-        <tr>
+        <tr data-mpn="{{ c.mpn }}" data-type="{{ type_display_name(c.component_type) }}" data-mfr="{{ c.manufacturer or '' }}">
           <td><a href="{{ url_for('component_detail', mpn=c.mpn) }}"><strong>{{ c.mpn }}</strong></a></td>
           <td>{{ type_cell(c) }}</td>
           <td class="review-reason">{{ c.review_reason or 'Needs review' }}</td>
@@ -75,11 +76,11 @@
 
   {% if ready %}
   <h2 class="ready-title">Ready <span class="muted">({{ ready|length }})</span></h2>
-  <table class="grid">
-    <thead><tr><th>MPN</th><th>Type</th><th>Manufacturer</th><th>Description</th><th></th></tr></thead>
+  <table class="grid js-sortable">
+    <thead><tr>{{ sort_th('mpn', 'MPN') }}{{ sort_th('type', 'Type') }}{{ sort_th('manufacturer', 'Manufacturer') }}<th>Description</th><th></th></tr></thead>
     <tbody>
     {% for c in ready %}
-      <tr>
+      <tr data-mpn="{{ c.mpn }}" data-type="{{ type_display_name(c.component_type) }}" data-mfr="{{ c.manufacturer or '' }}">
         <td><a href="{{ url_for('component_detail', mpn=c.mpn) }}"><strong>{{ c.mpn }}</strong></a></td>
         <td>{{ type_cell(c) }}</td>
         <td>{{ c.manufacturer or '—' }}</td>
@@ -95,4 +96,8 @@
 <p class="empty">No components{% if type_filter %} of this type{% endif %} yet.
   Add some with <code>python main.py add &lt;MPN&gt;</code>.</p>
 {% endif %}
+{% endblock %}
+
+{% block scripts %}
+<script src="{{ url_for('static', filename='dashboard-sort.js') }}" defer></script>
 {% endblock %}

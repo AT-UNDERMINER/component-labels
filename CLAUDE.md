@@ -253,6 +253,13 @@ by attribute shortname.
 - **Start offset:** if user specifies `--start 5`, labels fill positions 5–20 then
   continue on next sheet; positions 1–4 are left blank
 - Multi-sheet jobs are supported — one PDF file with multiple A4 pages
+- **Bleed & safe zone** (config `BLEED_MM` / `SAFE_ZONE_MM`, editable on `/settings`):
+  each cell gets a colour underlay that extends `BLEED_MM` past the trim so the
+  top colour bar reaches the edge even if the printer is slightly off; the label
+  artwork is scaled into the safe area via the `--safe-scale` / `--safe-zone` CSS
+  custom properties (set on the cell, consumed by `.label` in `label_styles.css`)
+  so all text/images stay `SAFE_ZONE_MM` inside the trim. Both vars are unset in
+  the browser preview/editor, so a single label still renders at exactly 45×45mm.
 
 ---
 

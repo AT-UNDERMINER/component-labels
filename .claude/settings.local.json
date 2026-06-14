@@ -11,7 +11,9 @@
       "Bash(python -c \"import sqlite3; c=sqlite3.connect\\('db/components.db'\\); [print\\(r\\) for r in c.execute\\('SELECT mpn, component_type FROM components'\\)]\")",
       "Bash(python -c ' *)",
       "Bash(python -c \"import weasyprint; print\\('weasyprint OK'\\)\")",
-      "Bash(python -m py_compile core/datasheet.py core/cache.py core/label_builder.py main.py app.py)"
+      "Bash(python -m py_compile core/datasheet.py core/cache.py core/label_builder.py main.py app.py)",
+      "Bash(python -c \"p='.gitattributes'; d=open\\(p,'rb'\\).read\\(\\); open\\(p,'wb'\\).write\\(d.replace\\(b'\\\\r\\\\n',b'\\\\n'\\)\\)\")",
+      "Bash(git add *)"
     ],
     "additionalDirectories": [
       "\\tmp"

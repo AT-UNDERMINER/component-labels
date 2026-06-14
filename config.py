@@ -167,6 +167,16 @@ MARGIN_LEFT_MM = _geo_float("MARGIN_LEFT_MM", 10.0)  # sheet edge → first col
 GAP_H_MM = _geo_float("GAP_H_MM", 5.0)              # horizontal gap between labels
 GAP_V_MM = _geo_float("GAP_V_MM", 5.0)              # vertical gap between labels
 
+# Print-finishing margins (millimetres), applied by core/pdf_renderer.py:
+#   BLEED      — how far the label's background + top colour bar extend BEYOND
+#                the 45mm trim so a slightly mis-registered printer never leaves
+#                a white sliver at the label edge (colour runs to the very edge).
+#   SAFE_ZONE  — how far all text/image content is kept INSIDE the trim, so the
+#                same print offset can't clip a digit or a pin label. Passed into
+#                the label CSS as the `--safe-zone` custom property.
+BLEED_MM = _geo_float("BLEED_MM", 1.0)
+SAFE_ZONE_MM = _geo_float("SAFE_ZONE_MM", 2.0)
+
 # Total label slots on one sheet. Positions are numbered 1..LABELS_PER_SHEET,
 # left-to-right then top-to-bottom (1 = top-left, 20 = bottom-right).
 LABELS_PER_SHEET = GRID_COLS * GRID_ROWS

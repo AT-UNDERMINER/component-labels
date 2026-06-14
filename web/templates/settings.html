@@ -1,6 +1,7 @@
 {% extends "base.html" %}
 {% block title %}Settings — Component Labels{% endblock %}
 {% block content %}
+<div class="settings-page">
 <h1>Settings</h1>
 
 <form method="post" class="form">
@@ -16,6 +17,10 @@
       </div>
       {% endfor %}
     </div>
+    <p class="muted small geo-hint"><strong>Bleed</strong> — how far the colour/background runs past the
+      label edge so a slightly mis-aligned print has no white sliver.
+      <strong>Safe zone inset</strong> — how far text &amp; images are kept inside the edge to survive printer
+      offset. Both in mm; applied when rendering the print PDF.</p>
   </section>
 
   <section class="panel">
@@ -48,4 +53,5 @@
   <p class="muted small">Credentials are environment-only (<code>.env</code>) and are never written to
     <code>settings.json</code>.</p>
 </section>
+</div>
 {% endblock %}

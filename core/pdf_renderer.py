@@ -39,7 +39,28 @@ import re
 from pathlib import Path
 
 import config
-from core import label_builder
+from core import cache, label_builder
+
+
+# Height of the top colour bar inside every label, in mm. Mirrors
+# `.type-bar { height: 6.5mm }` in templates/label_styles.css — the bleed
+# underlay paints the bar colour this far down (plus the bleed) so the colour
+# reaches the top edge behind the (safe-zone-inset) label.
+_BAR_HEIGHT_MM = 6.5
+
+
+# ── Print-finishing geometry (bleed + safe zone) ───────────────────────────────
+
+def _safe_scale() -> float:
+    """Uniform scale that fits the 45mm artwork inside the safe zone.
+
+    config.SAFE_ZONE_MM is how far content is kept inside the trim on every
+    side, so the label is scaled to (W - 2·safe)/W and centred. Clamped to a
+    sane floor so an over-large safe zone can't scale the label to nothing.
+    """
+    w = config.LABEL_WIDTH_MM
+    safe = config.SAFE_ZONE_MM
+    return max(0.1, (w - 2.0 * safe) / w) if w else 1.0
 
 
 # ── Grid geometry ──────────────────────────────────────────────────────────────
@@ -91,6 +112,25 @@ def _label_fragment(full_html: str) -> str:
     return match.group(1).strip() if match else full_html
 
 
+def _cell_html(cell: dict) -> str:
+    """One placed label cell: a bleed underlay behind the label fragment.
+
+    The underlay carries the part's colour-bar colour so that — once the label
+    itself is inset by the safe zone (via the --safe-scale transform in
+    label_styles.css) — the colour still runs to the top/edge of the trim and
+    the surrounding quiet zone stays white. The cell clips at the trim, so the
+    underlay's `bleed` overhang guarantees full edge coverage.
+    """
+    colour = config.type_colour((cache.get_component(cell["mpn"]) or {}).get("component_type"))
+    fragment = _label_fragment(label_builder.build_label(cell["mpn"]))
+    return (
+        f'    <div class="cell" style="left: {cell["left"]:.3f}mm; top: {cell["top"]:.3f}mm;">\n'
+        f'      <div class="bleed-underlay" style="--bar-colour: {colour};"></div>\n'
+        f"{fragment}\n"
+        f"    </div>"
+    )
+
+
 def build_sheet_html(mpns: list[str], *, start: int = 1) -> str:
     """Compose the full multi-page A4 HTML for a print job.
 
@@ -107,14 +147,15 @@ def build_sheet_html(mpns: list[str], *, start: int = 1) -> str:
 
     sheet_blocks: list[str] = []
     for sheet in sheets:
-        cells = "\n".join(
-            f'    <div class="cell" style="left: {c["left"]:.3f}mm; '
-            f'top: {c["top"]:.3f}mm;">\n{_label_fragment(label_builder.build_label(c["mpn"]))}\n    </div>'
-            for c in sheet
-        )
+        cells = "\n".join(_cell_html(c) for c in sheet)
         sheet_blocks.append(f'  <div class="sheet">\n{cells}\n  </div>')
 
     body = "\n".join(sheet_blocks)
+
+    bleed = config.BLEED_MM
+    safe = config.SAFE_ZONE_MM
+    safe_scale = _safe_scale()
+    bar_strip = _BAR_HEIGHT_MM + bleed  # underlay colour height (bar + bleed)
 
     # Stylesheet href + label image URLs are relative to templates/ — the
     # caller renders with base_url=config.TEMPLATE_DIR so they resolve.
@@ -139,6 +180,29 @@ def build_sheet_html(mpns: list[str], *, start: int = 1) -> str:
       width: {config.LABEL_WIDTH_MM}mm;
       height: {config.LABEL_HEIGHT_MM}mm;
       overflow: hidden;
+      /* Safe zone: --safe-scale shrinks the label into the safe area (consumed
+         by .label in label_styles.css); --safe-zone is the same inset in mm,
+         exposed for the templates to reference. */
+      --safe-zone: {safe}mm;
+      --safe-scale: {safe_scale:.5f};
+    }}
+    /* The label paints above its bleed underlay. */
+    .cell > .label {{ position: relative; z-index: 1; }}
+    /* Bleed: a colour/white underlay that extends {bleed}mm past the trim on
+       every side, so the colour bar reaches the edge even after the label is
+       inset by the safe zone (and even if the printer is a hair off). */
+    .bleed-underlay {{
+      position: absolute;
+      inset: -{bleed}mm;
+      z-index: 0;
+      background: #fff;
+    }}
+    .bleed-underlay::before {{
+      content: "";
+      position: absolute;
+      top: 0; left: 0; right: 0;
+      height: {bar_strip:.3f}mm;
+      background: var(--bar-colour, transparent);
     }}
   </style>
 </head>

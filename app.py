@@ -550,6 +550,8 @@ _GEOMETRY_FIELDS = [
     ("MARGIN_LEFT_MM", "Left margin", "0.1", False),
     ("GAP_H_MM", "Horizontal gap", "0.1", False),
     ("GAP_V_MM", "Vertical gap", "0.1", False),
+    ("BLEED_MM", "Bleed", "0.1", False),
+    ("SAFE_ZONE_MM", "Safe zone inset", "0.1", False),
 ]
 
 
