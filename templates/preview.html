@@ -11,7 +11,9 @@
   /* Preview chrome only — nothing here affects the actual labels. */
   body { background: #eef0f3; font-family: Arial, sans-serif; padding: 20px 26px; }
   h1 { font-size: 18px; color: #222; margin-bottom: 4px; }
-  p.note { font-size: 13px; color: #666; margin-bottom: 22px; max-width: 880px; }
+  p.note { font-size: 13px; color: #666; margin-bottom: 8px; max-width: 880px; }
+  h3.group { font-size: 13px; color: #333; margin: 22px 0 10px; max-width: 880px;
+             border-top: 1px solid #d6d9de; padding-top: 14px; }
   .tiles { display: flex; flex-wrap: wrap; gap: 28px; }
   .tile h2 { font-size: 13px; font-weight: normal; color: #555; margin-bottom: 8px;
              font-family: Consolas, monospace; }
@@ -30,73 +32,103 @@
      (label_simple / label_complex / label_connector) rendered by
      label_builder.py. Layout CSS is shared via label_styles.css, so the
      geometry shown here is exactly what WeasyPrint prints.</p>
+  <p class="note"><strong>Information hierarchy:</strong> the headline (largest
+     text) is the most useful identifier for the part &mdash; <em>not</em> always
+     the MPN. Passives lead with their <strong>value</strong>; actives, LEDs and
+     connectors lead with the <strong>MPN</strong> plus a short descriptor.</p>
 
+  <h3 class="group">Value is the headline &mdash; MPN is secondary
+     <span style="color:#888">(resistor, ceramic / electrolytic cap, zener, inductor)</span></h3>
   <div class="tiles">
 
-    <!-- ════════ label_simple.html — with pinout image ════════ -->
+    <!-- ════════ label_simple.html — resistor (value headline) ════════ -->
     <div class="tile">
-      <h2>label_simple.html &mdash; LED, with pinout image</h2>
+      <h2>label_simple.html &mdash; resistor</h2>
       <div class="scale-box">
         <div class="label simple">
-          <!-- gold is light → builder picks black bar text (luminance rule) -->
-          <div class="type-bar" style="background: #FFD700; color: #000000;">LED</div>
+          <div class="type-bar" style="background: #8B4513; color: #ffffff;">Resistor</div>
           <div class="head">
-            <div class="mpn">WP7113ID</div>
-            <div class="value">Red &middot; 625&nbsp;nm &middot; 5&nbsp;mm</div>
-          </div>
-          <div class="body">
-            <div class="specs">
-              <div class="spec"><span class="spec-name">Forward V</span><span class="spec-value">2.0 V</span></div>
-              <div class="spec"><span class="spec-name">Forward I</span><span class="spec-value">20 mA</span></div>
-              <div class="spec"><span class="spec-name">Lens</span><span class="spec-value">Diffused</span></div>
-            </div>
-            <div class="pinout"><img alt="pinout" src="data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 60 66'><path d='M16 30 a14 14 0 1 1 28 0 v6 h-28 z' fill='none' stroke='%23333' stroke-width='2.5'/><line x1='24' y1='36' x2='24' y2='58' stroke='%23333' stroke-width='2.5'/><line x1='36' y1='36' x2='36' y2='51' stroke='%23333' stroke-width='2.5'/><text x='21' y='65' font-size='9' font-family='sans-serif' fill='%23333'>A</text><text x='33' y='59' font-size='9' font-family='sans-serif' fill='%23333'>K</text></svg>"></div>
-          </div>
-        </div>
-      </div>
-    </div>
-
-    <!-- ════════ label_simple.html — no pinout image ════════ -->
-    <div class="tile">
-      <h2>label_simple.html &mdash; resistor, no image (specs full width)</h2>
-      <div class="scale-box">
-        <div class="label simple">
-          <div class="type-bar" style="background: #8B4513;">Resistor</div>
-          <div class="head">
-            <div class="mpn">CFR-25JB-52-10K</div>
-            <div class="value">10 k&Omega;</div>
+            <div class="headline">10 k&Omega;</div>
+            <div class="subline">CF1/4W103JRC</div>
           </div>
           <div class="body">
             <div class="specs">
               <div class="spec"><span class="spec-name">Power</span><span class="spec-value">0.25 W</span></div>
               <div class="spec"><span class="spec-name">Tolerance</span><span class="spec-value">&plusmn;5%</span></div>
-              <div class="spec"><span class="spec-name">TCR</span><span class="spec-value">&plusmn;350 ppm/&deg;C</span></div>
             </div>
           </div>
         </div>
       </div>
     </div>
 
-    <!-- ════════ label_complex.html ════════ -->
+    <!-- ════════ label_simple.html — electrolytic cap (value headline) ════════ -->
     <div class="tile">
-      <h2>label_complex.html &mdash; NE555 timer IC</h2>
+      <h2>label_simple.html &mdash; electrolytic cap</h2>
+      <div class="scale-box">
+        <div class="label simple">
+          <div class="type-bar" style="background: #4169E1; color: #ffffff;">Electrolytic Cap</div>
+          <div class="head">
+            <div class="headline">100 &micro;F&nbsp;&nbsp;50 V</div>
+            <div class="subline">EEUFR1H101</div>
+          </div>
+          <div class="body">
+            <div class="specs">
+              <div class="spec"><span class="spec-name">Temp</span><span class="spec-value">105 &deg;C</span></div>
+              <div class="spec"><span class="spec-name">Life</span><span class="spec-value">5000 h</span></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ════════ label_simple.html — zener diode (value headline) ════════ -->
+    <div class="tile">
+      <h2>label_simple.html &mdash; zener diode</h2>
+      <div class="scale-box">
+        <div class="label simple">
+          <!-- dark orange is light → builder picks black bar text (luminance rule) -->
+          <div class="type-bar" style="background: #FF8C00; color: #000000;">Zener Diode</div>
+          <div class="head">
+            <div class="headline">5.1 V</div>
+            <div class="subline">1N4733A</div>
+          </div>
+          <div class="body">
+            <div class="specs">
+              <div class="spec"><span class="spec-name">Power</span><span class="spec-value">1 W</span></div>
+              <div class="spec"><span class="spec-name">Tolerance</span><span class="spec-value">&plusmn;5%</span></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+  <h3 class="group">MPN is the headline &mdash; descriptor is secondary
+     <span style="color:#888">(BJT, MOSFET, IC, LED, connector)</span></h3>
+  <div class="tiles">
+
+    <!-- ════════ label_complex.html — BJT (MPN headline, polarity descriptor) ════════ -->
+    <div class="tile">
+      <h2>label_complex.html &mdash; BJT transistor</h2>
       <div class="scale-box">
         <div class="label complex">
-          <div class="type-bar" style="background: #8B008B;">IC / Op-Amp</div>
+          <!-- forest green sits just above the luminance threshold → black bar text -->
+          <div class="type-bar" style="background: #228B22; color: #000000;">BJT Transistor</div>
           <div class="head">
             <div class="id">
-              <div class="mpn">NE555P</div>
-              <div class="desc">Precision timer, PDIP-8</div>
+              <div class="headline">BC547</div>
+              <div class="subline">NPN</div>
             </div>
-            <div class="pkg"><img alt="package" src="data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 44'><rect x='12' y='10' width='40' height='24' rx='2' fill='%23262626'/><circle cx='18' cy='16' r='2.4' fill='%23484848'/><rect x='15' y='4' width='4' height='6' fill='%23999'/><rect x='25' y='4' width='4' height='6' fill='%23999'/><rect x='35' y='4' width='4' height='6' fill='%23999'/><rect x='45' y='4' width='4' height='6' fill='%23999'/><rect x='15' y='34' width='4' height='6' fill='%23999'/><rect x='25' y='34' width='4' height='6' fill='%23999'/><rect x='35' y='34' width='4' height='6' fill='%23999'/><rect x='45' y='34' width='4' height='6' fill='%23999'/></svg>"></div>
+            <div class="pkg"><img alt="package" src="data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 44'><path d='M18 34 v-12 a14 14 0 0 1 28 0 v12 z' fill='%23303030'/><line x1='18' y1='34' x2='46' y2='34' stroke='%23111' stroke-width='1'/><rect x='24' y='34' width='2.5' height='8' fill='%23999'/><rect x='31' y='34' width='2.5' height='8' fill='%23999'/><rect x='38' y='34' width='2.5' height='8' fill='%23999'/></svg>"></div>
           </div>
           <div class="specs-row">
-            <div class="spec-cell"><div class="spec-name">Supply</div><div class="spec-value">4.5&ndash;16 V</div></div>
-            <div class="spec-cell"><div class="spec-name">I out</div><div class="spec-value">&plusmn;200 mA</div></div>
-            <div class="spec-cell"><div class="spec-name">f max</div><div class="spec-value">100 kHz</div></div>
+            <div class="spec-cell"><div class="spec-name">Vceo</div><div class="spec-value">45 V</div></div>
+            <div class="spec-cell"><div class="spec-name">Ic max</div><div class="spec-value">100 mA</div></div>
+            <div class="spec-cell"><div class="spec-name">hFE</div><div class="spec-value">200</div></div>
           </div>
           <div class="pinout-box">
-            <img alt="pinout" src="data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 150 92'><rect x='52' y='6' width='46' height='80' fill='none' stroke='%23333' stroke-width='2'/><path d='M68 6 a7 7 0 0 0 14 0' fill='none' stroke='%23333' stroke-width='2'/><rect x='44' y='13' width='8' height='6' fill='%23333'/><rect x='44' y='33' width='8' height='6' fill='%23333'/><rect x='44' y='53' width='8' height='6' fill='%23333'/><rect x='44' y='73' width='8' height='6' fill='%23333'/><rect x='98' y='13' width='8' height='6' fill='%23333'/><rect x='98' y='33' width='8' height='6' fill='%23333'/><rect x='98' y='53' width='8' height='6' fill='%23333'/><rect x='98' y='73' width='8' height='6' fill='%23333'/><text x='40' y='19' font-size='11' font-family='sans-serif' fill='%23333' text-anchor='end'>GND</text><text x='40' y='39' font-size='11' font-family='sans-serif' fill='%23333' text-anchor='end'>TRG</text><text x='40' y='59' font-size='11' font-family='sans-serif' fill='%23333' text-anchor='end'>OUT</text><text x='40' y='79' font-size='11' font-family='sans-serif' fill='%23333' text-anchor='end'>RST</text><text x='110' y='19' font-size='11' font-family='sans-serif' fill='%23333'>VCC</text><text x='110' y='39' font-size='11' font-family='sans-serif' fill='%23333'>DIS</text><text x='110' y='59' font-size='11' font-family='sans-serif' fill='%23333'>THR</text><text x='110' y='79' font-size='11' font-family='sans-serif' fill='%23333'>CTL</text></svg>">
+            <img alt="pinout" src="data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 150 92'><circle cx='75' cy='46' r='32' fill='none' stroke='%23333' stroke-width='2'/><line x1='28' y1='46' x2='62' y2='46' stroke='%23333' stroke-width='2.5'/><line x1='62' y1='30' x2='62' y2='62' stroke='%23333' stroke-width='3'/><line x1='62' y1='38' x2='95' y2='20' stroke='%23333' stroke-width='2.5'/><line x1='95' y1='20' x2='95' y2='8' stroke='%23333' stroke-width='2.5'/><line x1='62' y1='54' x2='95' y2='72' stroke='%23333' stroke-width='2.5'/><line x1='95' y1='72' x2='95' y2='84' stroke='%23333' stroke-width='2.5'/><path d='M80 60 l16 13 l-2 -14 z' fill='%23333'/><text x='24' y='42' font-size='12' font-family='sans-serif' fill='%23333' text-anchor='end'>B</text><text x='99' y='13' font-size='12' font-family='sans-serif' fill='%23333'>C</text><text x='99' y='86' font-size='12' font-family='sans-serif' fill='%23333'>E</text></svg>">
           </div>
           <div class="qr-row">
             <img class="qr" alt="QR code" src="data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 29 29' shape-rendering='crispEdges'><rect width='29' height='29' fill='%23fff'/><g fill='%23000'><rect x='0' y='0' width='7' height='7'/><rect x='22' y='0' width='7' height='7'/><rect x='0' y='22' width='7' height='7'/><path d='M9 1h2v2H9z M13 0h2v2h-2z M17 2h2v2h-2z M9 5h2v2H9z M14 4h2v2h-2z M18 6h2v2h-2z M1 9h2v2H1z M4 13h2v2H4z M2 17h2v2H2z M6 14h2v2H6z M9 9h3v3H9z M14 10h2v2h-2z M18 12h2v2h-2z M22 9h2v2h-2z M26 13h2v2h-2z M10 14h2v2h-2z M13 17h3v3h-3z M18 16h2v2h-2z M23 14h2v2h-2z M26 18h2v2h-2z M9 22h2v2H9z M13 24h2v2h-2z M17 21h2v2h-2z M21 22h3v3h-3z M26 26h2v2h-2z M18 26h2v2h-2z M10 27h2v2h-2z'/></g><g fill='%23fff'><rect x='1' y='1' width='5' height='5'/><rect x='23' y='1' width='5' height='5'/><rect x='1' y='23' width='5' height='5'/></g><g fill='%23000'><rect x='2' y='2' width='3' height='3'/><rect x='24' y='2' width='3' height='3'/><rect x='2' y='24' width='3' height='3'/></g></svg>">
@@ -106,16 +138,16 @@
       </div>
     </div>
 
-    <!-- ════════ label_connector.html ════════ -->
+    <!-- ════════ label_connector.html — JST XH header (MPN headline) ════════ -->
     <div class="tile">
       <h2>label_connector.html &mdash; JST XH header</h2>
       <div class="scale-box">
         <div class="label connector">
-          <div class="type-bar" style="background: #DC143C;">Connector</div>
+          <div class="type-bar" style="background: #DC143C; color: #ffffff;">Connector</div>
           <div class="head">
             <div class="id">
-              <div class="mpn">B2B-XH-A(LF)(SN)</div>
-              <div class="desc">JST XH 2-pos top-entry header</div>
+              <div class="headline">B2B-XH-A</div>
+              <div class="subline">2 pins &middot; 2.5mm</div>
             </div>
             <div class="pkg"><img alt="package" src="data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 44'><rect x='8' y='8' width='48' height='28' rx='2' fill='%23eee' stroke='%23444' stroke-width='2'/><rect x='18' y='14' width='10' height='16' fill='%23fff' stroke='%23444' stroke-width='1.5'/><rect x='36' y='14' width='10' height='16' fill='%23fff' stroke='%23444' stroke-width='1.5'/><rect x='21' y='36' width='4' height='6' fill='%23999'/><rect x='39' y='36' width='4' height='6' fill='%23999'/></svg>"></div>
           </div>
@@ -126,7 +158,7 @@
           <div class="specs-row">
             <div class="spec-cell"><div class="spec-name">Current</div><div class="spec-value">3 A</div></div>
             <div class="spec-cell"><div class="spec-name">Voltage</div><div class="spec-value">250 V</div></div>
-            <div class="spec-cell"><div class="spec-name">Temp</div><div class="spec-value">-25&ndash;85 &deg;C</div></div>
+            <div class="spec-cell"><div class="spec-name">Temp</div><div class="spec-value">105 &deg;C</div></div>
           </div>
           <div class="drawing">
             <img alt="drawing" src="data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 96 50'><rect x='6' y='6' width='84' height='32' fill='none' stroke='%23333' stroke-width='2.5'/><rect x='16' y='12' width='26' height='20' fill='none' stroke='%23333' stroke-width='2'/><rect x='54' y='12' width='26' height='20' fill='none' stroke='%23333' stroke-width='2'/><text x='29' y='48' font-size='10' font-family='sans-serif' fill='%23333' text-anchor='middle'>1</text><text x='67' y='48' font-size='10' font-family='sans-serif' fill='%23333' text-anchor='middle'>2</text></svg>">

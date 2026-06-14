@@ -22,6 +22,10 @@
   background: #fff;
   color: #111;
   font-family: "DejaVu Sans", Arial, Helvetica, sans-serif;
+  /* Establish a query container so the colour bar can size its text to
+     the label width via cqi units (see .type-bar). Renderers without
+     container-query support simply ignore this and use the mm fallback. */
+  container-type: inline-size;
 }
 
 img { display: block; }
@@ -34,13 +38,20 @@ img { display: block; }
   line-height: 6.5mm;
   padding: 0 1mm;
   color: #fff;
-  font-size: 3.1mm;
+  /* Scale the type name down so long names ("ELECTROLYTIC CAP") fit on
+     one line. 6.5cqi ≈ 2.9mm on a 45mm-wide label; clamped top and bottom
+     for legibility. The plain mm value above is a fallback for renderers
+     without container units. text-overflow is the hard guard: anything
+     still too long clips with an ellipsis rather than overflowing. */
+  font-size: 2.9mm;
+  font-size: clamp(2.5mm, 6.5cqi, 3.1mm);
   font-weight: bold;
   text-align: center;
   text-transform: uppercase;
-  letter-spacing: 0.25mm;
+  letter-spacing: 0.15mm;
   white-space: nowrap;
   overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 /* ── Shared: QR row (complex + connector) ──────────────────── */
@@ -52,7 +63,10 @@ img { display: block; }
   border-top: 0.2mm solid #ddd;
 }
 .qr-row .qr { width: 7mm; height: 7mm; }
-.qr-row .qr-hint { font-size: 2.1mm; color: #777; margin-left: 1.5mm; }
+.qr-row .qr-hint {
+  font-size: 2.1mm; color: #777; margin-left: 1.5mm;
+  min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
 
 /* ── Shared: empty-slot placeholder ──────────────────────────── */
 .placeholder {
@@ -61,9 +75,12 @@ img { display: block; }
   display: flex;
   align-items: center;
   justify-content: center;
+  padding: 0 1mm;
   font-size: 2.2mm;
   color: #bbb;
   font-style: italic;
+  white-space: nowrap;
+  overflow: hidden;
 }
 
 /* ── Shared: 3-column spec strip (complex + connector) ───────── */
@@ -73,7 +90,18 @@ img { display: block; }
   border-top: 0.2mm solid #ddd;
   padding: 0 0.5mm;
 }
-.spec-cell { flex: 1; min-width: 0; padding-top: 0.3mm; text-align: center; }
+/* Equal thirds. An explicit flex-basis of 33.333% (rather than 0) makes
+   the split deterministic, so the third column always keeps its share and
+   is never squeezed out — the source of the clipping. It still degrades
+   cleanly to even halves / full width when only 1–2 specs are present.
+   overflow: hidden on the cell keeps long content inside its own column. */
+.spec-cell {
+  flex: 1 1 33.333%;
+  min-width: 0;
+  overflow: hidden;
+  padding: 0.3mm 0.3mm 0;
+  text-align: center;
+}
 .spec-cell .spec-name {
   font-size: 1.9mm;
   line-height: 2.1mm;
@@ -81,6 +109,7 @@ img { display: block; }
   text-transform: uppercase;
   white-space: nowrap;
   overflow: hidden;
+  text-overflow: ellipsis;
 }
 .spec-cell .spec-value {
   font-size: 2.5mm;
@@ -88,24 +117,29 @@ img { display: block; }
   font-weight: bold;
   white-space: nowrap;
   overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 /* ════════ SIMPLE (resistor, caps, LED, zener, inductor) ════════ */
-.simple .head { height: 10mm; padding: 1.2mm 1.5mm 0; }
-.simple .mpn {
-  font-size: 4mm;
+/* headline is the big identifier (value for passives, MPN for LEDs);
+   subline is the secondary line. The ~1.85x size ratio makes the
+   hierarchy unmistakable at a glance. */
+.simple .head { height: 10mm; padding: 1.3mm 1.5mm 0; }
+.simple .headline {
+  font-size: 4.8mm;
   font-weight: bold;
-  line-height: 4.8mm;
+  line-height: 5.4mm;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
 }
-.simple .value {
-  font-size: 3.3mm;
-  line-height: 3.9mm;
-  color: #333;
+.simple .subline {
+  font-size: 2.6mm;
+  line-height: 3.1mm;
+  color: #555;
   white-space: nowrap;
   overflow: hidden;
+  text-overflow: ellipsis;
 }
 .simple .body {
   height: 28.5mm;
@@ -121,23 +155,27 @@ img { display: block; }
   line-height: 4mm;
   border-bottom: 0.2mm dotted #e5e5e5;
 }
-.simple .spec-name { color: #666; margin-right: 1mm; white-space: nowrap; overflow: hidden; }
-.simple .spec-value { font-weight: bold; white-space: nowrap; }
+.simple .spec-name { color: #666; margin-right: 1mm; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.simple .spec-value { font-weight: bold; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .simple .pinout { width: 15mm; margin-left: 1mm; }
 .simple .pinout img { width: 100%; height: 100%; object-fit: contain; }
+/* inline resistor colour-band SVG fills the image zone */
+.simple .pinout svg { display: block; width: 100%; height: 100%; }
 
 /* ════════ COMPLEX (BJT, MOSFET, IC, op-amp) ════════ */
+/* headline is the MPN (largest); subline is the key descriptor
+   (polarity / channel) or the description. */
 .complex .head { height: 9mm; display: flex; padding: 1mm 1.5mm; }
 .complex .id { flex: 1; min-width: 0; }
-.complex .mpn {
-  font-size: 3.6mm;
+.complex .headline {
+  font-size: 4.2mm;
   font-weight: bold;
-  line-height: 4.2mm;
+  line-height: 4.5mm;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
 }
-.complex .desc {
+.complex .subline {
   font-size: 2.3mm;
   line-height: 2.7mm;
   color: #555;
@@ -155,19 +193,21 @@ img { display: block; }
 .complex .pinout-box img { width: 100%; height: 100%; object-fit: contain; margin: 0 auto; }
 
 /* ════════ CONNECTOR (JST etc.) ════════ */
+/* headline is the MPN (largest); subline is the "<n> pins · <pitch>"
+   descriptor. The pin/pitch stat boxes below repeat those values big. */
 .connector .head { height: 8.5mm; display: flex; padding: 1mm 1.5mm; }
 .connector .id { flex: 1; min-width: 0; }
-.connector .mpn {
-  font-size: 3.4mm;
+.connector .headline {
+  font-size: 4mm;
   font-weight: bold;
-  line-height: 3.9mm;
+  line-height: 4.4mm;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
 }
-.connector .desc {
-  font-size: 2.2mm;
-  line-height: 2.5mm;
+.connector .subline {
+  font-size: 2.3mm;
+  line-height: 2.7mm;
   color: #555;
   white-space: nowrap;
   overflow: hidden;
@@ -198,12 +238,17 @@ img { display: block; }
   line-height: 2mm;
   color: #666;
   letter-spacing: 0.2mm;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 .connector .stat-value {
   font-size: 3.2mm;
   line-height: 3.6mm;
   font-weight: bold;
   white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 .connector .drawing { height: 8.5mm; border-top: 0.2mm solid #ddd; padding: 0.6mm; }
 .connector .drawing img { width: 100%; height: 100%; object-fit: contain; margin: 0 auto; }
