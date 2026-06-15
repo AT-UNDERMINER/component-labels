@@ -20,7 +20,16 @@
       "Bash(curl -s --retry 5 --retry-delay 1 --retry-connrefused -o /dev/null -w \"encoded  /component/CF1%%2F4W103JRC -> HTTP %{http_code}\\\\n\" \"http://127.0.0.1:5077/component/CF1%2F4W103JRC\")",
       "Bash(curl -s -o /dev/null -w \"literal   /component/CF1/4W103JRC   -> HTTP %{http_code}\\\\n\" \"http://127.0.0.1:5077/component/CF1/4W103JRC\")",
       "Bash(curl -s \"http://127.0.0.1:5077/component/CF1%2F4W103JRC\")",
-      "PowerShell($c = Get-NetTCPConnection -LocalPort 5077 -State Listen -ErrorAction SilentlyContinue; if \\($c\\) { Stop-Process -Id $c.OwningProcess -Force; \"stopped pid $\\($c.OwningProcess\\)\" } else { \"no listener on 5077\" })"
+      "PowerShell($c = Get-NetTCPConnection -LocalPort 5077 -State Listen -ErrorAction SilentlyContinue; if \\($c\\) { Stop-Process -Id $c.OwningProcess -Force; \"stopped pid $\\($c.OwningProcess\\)\" } else { \"no listener on 5077\" })",
+      "Bash(python -c \"import weasyprint; print\\('weasyprint OK', getattr\\(weasyprint,'__version__','?'\\)\\)\")",
+      "Bash(python -c \"import weasyprint\")",
+      "Bash(python -)",
+      "Bash(PYTHONIOENCODING=utf-8 python -c ' *)",
+      "Bash(grep -v \"^$\")",
+      "PowerShell($paths = @\\(\"$env:ProgramFiles\\\\Microsoft\\\\Edge\\\\Application\\\\msedge.exe\", \"${env:ProgramFiles\\(x86\\)}\\\\Microsoft\\\\Edge\\\\Application\\\\msedge.exe\"\\); $found = $paths | Where-Object { Test-Path $_ }; if \\($found\\) { $found[0] } else { \"EDGE NOT FOUND\"; \\(Get-Command chrome -ErrorAction SilentlyContinue\\).Source })",
+      "Bash(FLASK_HOST=127.0.0.1 FLASK_PORT=5078 python app.py)",
+      "Bash(curl -s --retry 6 --retry-delay 1 --retry-connrefused -o /dev/null -w \"dashboard HTTP %{http_code}\\\\n\" \"http://127.0.0.1:5078/\")",
+      "Bash(python -m py_compile app.py main.py config.py core/generics.py core/cache.py core/label_builder.py core/pdf_renderer.py)"
     ],
     "additionalDirectories": [
       "\\tmp"

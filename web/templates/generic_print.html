@@ -1,0 +1,82 @@
+{% extends "base.html" %}
+{% block title %}Print {{ group.display_name }} — Component Labels{% endblock %}
+{% block content %}
+<p class="crumb"><a href="{{ url_for('index') }}">&larr; Dashboard</a></p>
+
+<div class="detail-head">
+  <h1>{{ group.display_name }}</h1>
+  <span class="type-tag" style="background:{{ colour }};color:{{ bar_text(colour) }}">
+    <span class="badge-generic on-tag">GENERIC</span> {{ type_display_name(group.component_type) }}</span>
+</div>
+<p class="muted">Pick {% if group.parameters %}a value for each parameter, then {% endif %}tick the
+  catalogue values to print — one label is generated per ticked value. Nothing is
+  stored per value.</p>
+
+<div class="generic-print" data-preview-url="{{ url_for('generic_preview', key=group.key) }}">
+
+  <!-- LEFT: live label preview -->
+  <section class="panel gp-preview">
+    <h2>Preview</h2>
+    <div class="label-preview">
+      <iframe id="gp-frame" title="label preview" scrolling="no"></iframe>
+    </div>
+    <p class="muted small">Tracks the parameters below; click any value to preview it.</p>
+  </section>
+
+  <!-- RIGHT: parameters + value picker -->
+  <section class="panel gp-controls">
+    <form method="post" id="gp-form">
+
+      {% for p in group.parameters %}
+      <fieldset class="form-row gp-param">
+        <legend>{{ p.name }}</legend>
+        <div class="gp-options">
+          {% for opt in p.options %}
+          <label class="radio"><input type="radio" name="param_{{ p.key }}" value="{{ opt }}"
+                 {% if loop.first %}checked{% endif %}> {{ opt }}</label>
+          {% endfor %}
+        </div>
+      </fieldset>
+      {% endfor %}
+
+      {% if group.fixed_specs %}
+      <p class="small muted gp-fixed">Every label also shows:
+        {% for s in group.fixed_specs %}<span class="pill">{{ s.name }} {{ s.value }}</span>{% endfor %}
+      </p>
+      {% endif %}
+
+      <div class="form-row inline">
+        <label>Start at position</label>
+        <input type="number" name="start" min="1" max="{{ per_sheet }}" value="1">
+        <span class="muted small">1&ndash;{{ per_sheet }} (skip used cells on a part-used sheet)</span>
+      </div>
+
+      <div class="gp-values-head">
+        <strong>Values</strong> <span class="muted">({{ group['values']|length }})</span>
+        <input type="search" id="gp-filter" placeholder="filter, e.g. 10k" autocomplete="off">
+        <label class="cb"><input type="checkbox" id="gp-all"> select all shown</label>
+        <span class="muted small" id="gp-count">0 selected</span>
+      </div>
+
+      <div class="gp-values" id="gp-values">
+        {% for v in group['values'] %}
+        <label class="gp-val" data-i="{{ loop.index0 }}" data-text="{{ v.value|lower }}">
+          <input type="checkbox" name="values" value="{{ loop.index0 }}">
+          <span class="gp-val-name">{{ v.value }}</span>
+          {% if v.specs %}<span class="gp-val-spec">{% for s in v.specs %}{{ s.value }}{% if not loop.last %} · {% endif %}{% endfor %}</span>{% endif %}
+        </label>
+        {% endfor %}
+      </div>
+
+      <div class="form-actions">
+        <button type="submit" class="btn primary">Generate &amp; download PDF</button>
+        <a class="btn" href="{{ url_for('index') }}">Cancel</a>
+      </div>
+    </form>
+  </section>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script src="{{ url_for('static', filename='generic-print.js') }}" defer></script>
+{% endblock %}

@@ -114,6 +114,18 @@ table.grid.review tbody tr:hover { background: #fefae8; }
 .ready-title { color: #374151; }
 .btn.small { padding: 4px 11px; font-size: 13px; }
 
+/* ── Generic groups (dashboard rows + GENERIC badge) ───── */
+table.grid tbody tr.row-generic { background: #f5f3ff; }       /* faint violet tint */
+table.grid tbody tr.row-generic:hover { background: #efeaff; }
+.badge-generic {
+  display: inline-block; vertical-align: 1px;
+  background: #6d28d9; color: #fff;
+  font-size: 10px; font-weight: 700; letter-spacing: .5px;
+  padding: 1px 6px; border-radius: 4px; margin-right: 6px;
+}
+/* On a coloured type-tag the badge sits on a translucent chip instead. */
+.badge-generic.on-tag { background: rgba(255, 255, 255, .28); }
+
 table.kv { width: 100%; border-collapse: collapse; }
 table.kv th, table.kv td { text-align: left; padding: 5px 8px; border-bottom: 1px solid var(--line); font-size: 13px; vertical-align: top; }
 table.kv th { color: var(--muted); font-weight: 600; width: 45%; }
@@ -256,3 +268,38 @@ label.radio input[type=text] { width: auto; flex: 1; }
 .colour-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 10px; margin-bottom: 4px; }
 .colour-field { display: flex; align-items: center; gap: 10px; font-size: 13px; }
 .colour-field input[type=color] { width: 38px; height: 28px; padding: 0; border: 1px solid var(--line); border-radius: 5px; background: #fff; }
+
+/* ── Generic print page (preview + parameter/value picker) ───── */
+.generic-print { display: flex; gap: 18px; align-items: flex-start; flex-wrap: wrap; }
+.gp-preview { flex: 0 0 auto; position: sticky; top: 64px; margin-bottom: 18px; }
+.gp-preview h2:first-child { margin-top: 0; }
+.gp-controls { flex: 1; min-width: 360px; margin-bottom: 18px; }
+.gp-controls fieldset.gp-param { margin-bottom: 14px; }
+.gp-options { display: flex; flex-wrap: wrap; gap: 6px 18px; }
+.gp-options label.radio { margin: 2px 0; }
+.gp-fixed { margin: -4px 0 14px; display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
+.pill {
+  display: inline-block; background: #eef2ff; color: #3730a3;
+  border: 1px solid #c7d2fe; border-radius: 999px;
+  padding: 1px 9px; font-size: 12px;
+}
+
+.gp-values-head { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; margin: 6px 0 8px; }
+.gp-values-head input[type=search] { width: auto; flex: 1; min-width: 120px; padding: 6px 9px; }
+.gp-values-head #gp-count { margin-left: auto; font-variant-numeric: tabular-nums; }
+
+/* Scrollable grid of value checkboxes — copes with the E96 metal-film list. */
+.gp-values {
+  display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  gap: 4px; max-height: 360px; overflow: auto;
+  border: 1px solid var(--line); border-radius: 8px;
+  padding: 8px; background: #fafbfc; margin-bottom: 14px;
+}
+.gp-val {
+  display: flex; align-items: baseline; gap: 7px;
+  padding: 4px 7px; border-radius: 6px; cursor: pointer; font-size: 13px;
+}
+.gp-val:hover { background: #eef1f5; }
+.gp-val input { width: auto; flex: 0 0 auto; }
+.gp-val-name { font-weight: 600; }
+.gp-val-spec { color: var(--muted); font-size: 11px; margin-left: auto; }

@@ -60,8 +60,26 @@ CREATE TABLE IF NOT EXISTS labels (
     FOREIGN KEY (mpn) REFERENCES components(mpn) ON DELETE CASCADE
 );
 
+-- Generic component families (resistor/cap/diode series) — see core/generics.py.
+-- These carry no MPN and need no API lookup: the user picks parameters + values
+-- at print time and each value is rendered to a label on the fly (nothing per
+-- value is stored). Seeded from generics.seed_definitions() on first run.
+CREATE TABLE IF NOT EXISTS generic_groups (
+    id               INTEGER PRIMARY KEY AUTOINCREMENT,
+    key              TEXT    NOT NULL UNIQUE,
+    display_name     TEXT    NOT NULL,
+    component_type   TEXT,
+    parameters_json  TEXT,
+    values_json      TEXT,
+    label_template   TEXT,
+    fixed_specs_json TEXT,
+    colour           TEXT,
+    created_at       TEXT    NOT NULL
+);
+
 CREATE INDEX IF NOT EXISTS idx_components_type ON components(component_type);
 CREATE INDEX IF NOT EXISTS idx_labels_mpn      ON labels(mpn);
+CREATE INDEX IF NOT EXISTS idx_generic_type    ON generic_groups(component_type);
 """
 
 
@@ -139,15 +157,30 @@ def _row_to_label(row: sqlite3.Row | None) -> dict[str, Any] | None:
     return dict(row) if row is not None else None
 
 
+def _row_to_generic_group(row: sqlite3.Row | None) -> dict[str, Any] | None:
+    """Turn a generic_groups row into a dict, decoding the *_json columns into
+    native lists under the friendlier keys `parameters`, `values`, `fixed_specs`."""
+    if row is None:
+        return None
+    d = dict(row)
+    d["parameters"] = json.loads(d.get("parameters_json") or "[]")
+    d["values"] = json.loads(d.get("values_json") or "[]")
+    d["fixed_specs"] = json.loads(d.get("fixed_specs_json") or "[]")
+    return d
+
+
 # ── Public API: init ──────────────────────────────────────────────────────────
 
 def init_db() -> Path:
     """Create the database file and schema if they don't exist (idempotent).
 
-    Safe to call at startup. Returns the path to the database file.
+    Safe to call at startup. Also seeds the predefined generic component groups
+    on first run (and tops up any that are missing). Returns the path to the
+    database file.
     """
     with _db():
         pass
+    seed_generic_groups()
     return DB_PATH
 
 
@@ -332,3 +365,69 @@ def get_latest_label(mpn: str) -> dict[str, Any] | None:
             (mpn,),
         ).fetchone()
     return _row_to_label(row)
+
+
+# ── Public API: generic groups ──────────────────────────────────────────────────
+
+def seed_generic_groups() -> int:
+    """Insert any predefined generic groups that aren't present yet (idempotent).
+
+    Definitions come from core/generics.seed_definitions(); each is inserted
+    with INSERT OR IGNORE keyed on the unique `key`, so existing groups (and any
+    edits to them) are left untouched and only missing ones are added. Returns
+    the number of groups newly inserted. Imported lazily so cache.py keeps no
+    hard dependency on the catalogue module at import time.
+    """
+    from core import generics
+
+    now = _utc_now_iso()
+    inserted = 0
+    with _db() as conn:
+        for d in generics.seed_definitions():
+            cur = conn.execute(
+                """
+                INSERT OR IGNORE INTO generic_groups (
+                    key, display_name, component_type, parameters_json,
+                    values_json, label_template, fixed_specs_json, colour,
+                    created_at
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                """,
+                (
+                    d["key"],
+                    d["display_name"],
+                    d.get("component_type"),
+                    json.dumps(d.get("parameters") or [], ensure_ascii=False),
+                    json.dumps(d.get("values") or [], ensure_ascii=False),
+                    d.get("label_template"),
+                    json.dumps(d.get("fixed_specs") or [], ensure_ascii=False),
+                    d.get("colour"),
+                    now,
+                ),
+            )
+            inserted += cur.rowcount
+    return inserted
+
+
+def list_generic_groups(component_type: str | None = None) -> list[dict[str, Any]]:
+    """All generic groups, optionally filtered by component_type, ordered by name."""
+    with _db() as conn:
+        if component_type is None:
+            rows = conn.execute(
+                "SELECT * FROM generic_groups ORDER BY display_name"
+            ).fetchall()
+        else:
+            rows = conn.execute(
+                "SELECT * FROM generic_groups WHERE component_type = ? "
+                "ORDER BY display_name",
+                (component_type,),
+            ).fetchall()
+    return [g for r in rows if (g := _row_to_generic_group(r)) is not None]
+
+
+def get_generic_group(key: str) -> dict[str, Any] | None:
+    """Return one generic group by its unique key, or None if not found."""
+    with _db() as conn:
+        row = conn.execute(
+            "SELECT * FROM generic_groups WHERE key = ?", (key,)
+        ).fetchone()
+    return _row_to_generic_group(row)

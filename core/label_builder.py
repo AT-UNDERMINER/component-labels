@@ -571,3 +571,78 @@ def build_label(mpn: str, overrides: dict[str, Any] | None = None) -> str:
     """
     context, template_name = label_context(mpn, overrides)
     return _env.get_template(template_name).render(context)
+
+
+# ── Generic groups (no MPN, no cache, rendered on the fly) ──────────────────────
+
+def build_generic_label(
+    group: dict[str, Any],
+    value: dict[str, Any],
+    params: dict[str, str] | None = None,
+) -> str:
+    """Render label HTML for one value of a generic component group.
+
+    `group` is a generic_groups record (see cache.get_generic_group), `value`
+    is one element of group["values"], and `params` maps each parameter key to
+    the option the user picked at print time (e.g. {"power": "1/4 W"}). Nothing
+    is read from or written to the cache — generic values carry no MPN and store
+    no per-value record; this is the on-the-fly counterpart to build_label().
+
+    It reuses the same templates, colour logic and resistor colour-band SVG as
+    real parts. Each parameter's `role` (config'd in core/generics.py) decides
+    how the picked option is applied to the label:
+      "headline" → appended to the headline (a cap's voltage → "100 µF 50 V")
+      "spec"     → shown as a spec row (a resistor's power rating)
+    Per-value specs (diode ratings) and the group's fixed_specs follow; the
+    simple template shows the first three. No MPN, QR, package or pinout image
+    is shown — the value itself is the identifier.
+    """
+    params = params or {}
+    ctype = group.get("component_type")
+    colour = group.get("colour") or config.type_colour(ctype)
+
+    headline = value["value"]
+    spec_rows: list[dict[str, str]] = []
+    for param in group.get("parameters") or []:
+        chosen = params.get(param.get("key", ""))
+        if not chosen:
+            continue
+        if param.get("role") == "headline":
+            headline = f"{headline} {chosen}"
+        else:
+            spec_rows.append({"name": param["name"], "value": chosen})
+    spec_rows += value.get("specs") or []        # per-value specs (e.g. diode V/I)
+    spec_rows += group.get("fixed_specs") or []   # specs shown on every label
+
+    # Resistors get the colour-band diagram in the image zone, exactly as real
+    # resistor labels do; the tolerance comes from the group's fixed_specs.
+    band_svg = ""
+    if ctype == "resistor":
+        tol = next(
+            (s.get("value") for s in (group.get("fixed_specs") or [])
+             if _norm(s.get("name") or "").startswith("tol")),
+            None,
+        )
+        band_svg = resistor_band_svg(value["value"], tol)
+
+    # Full context superset (StrictUndefined-safe for any label_template). The
+    # secondary line shows the family name in place of the (absent) MPN.
+    context: dict[str, Any] = {
+        "type_colour": colour,
+        "bar_text_colour": bar_text_colour(colour),
+        "type_name": config.type_display_name(ctype),
+        "mpn": "",
+        "headline": headline,
+        "subline": group.get("display_name") or "",
+        "description": group.get("display_name") or "",
+        "value": headline,
+        "specs": spec_rows,
+        "pin_count": "—",
+        "pitch": "—",
+        "band_svg": band_svg,
+        "package_image": None,
+        "pinout_image": None,
+        "qr_image": None,
+    }
+    template_name = group.get("label_template") or config.type_template(ctype)
+    return _env.get_template(template_name).render(context)

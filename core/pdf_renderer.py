@@ -74,24 +74,23 @@ def _cell_xy(position: int) -> tuple[float, float]:
     return left, top
 
 
-def _paginate(mpns: list[str], start: int) -> list[list[dict]]:
-    """Group the labels into sheets, each a list of placed-cell dicts.
+def _paginate(labels: list[dict], start: int) -> list[list[dict]]:
+    """Group placed labels into sheets, each a list of positioned-cell dicts.
 
-    Returns [[{mpn, position, left, top}, ...], ...] — one inner list per A4
+    Each input label is a dict carrying at least {"html", "colour"}; the output
+    copies it with {position, left, top} added. Returns one inner list per A4
     page. The first label lands at `start`; each page holds positions up to
     config.LABELS_PER_SHEET before the job spills onto a new page.
     """
     per_sheet = config.LABELS_PER_SHEET
     sheets: list[list[dict]] = [[]]
     position = start
-    for mpn in mpns:
+    for label in labels:
         if position > per_sheet:
             sheets.append([])
             position = 1
         left, top = _cell_xy(position)
-        sheets[-1].append(
-            {"mpn": mpn, "position": position, "left": left, "top": top}
-        )
+        sheets[-1].append({**label, "position": position, "left": left, "top": top})
         position += 1
     return sheets
 
@@ -115,14 +114,17 @@ def _label_fragment(full_html: str) -> str:
 def _cell_html(cell: dict) -> str:
     """One placed label cell: a bleed underlay behind the label fragment.
 
-    The underlay carries the part's colour-bar colour so that — once the label
+    The underlay carries the label's colour-bar colour so that — once the label
     itself is inset by the safe zone (via the --safe-scale transform in
     label_styles.css) — the colour still runs to the top/edge of the trim and
     the surrounding quiet zone stays white. The cell clips at the trim, so the
     underlay's `bleed` overhang guarantees full edge coverage.
+
+    `cell` carries the pre-built label HTML and its bleed colour, so this is
+    agnostic to whether the label came from a cached MPN or a generic group.
     """
-    colour = config.type_colour((cache.get_component(cell["mpn"]) or {}).get("component_type"))
-    fragment = _label_fragment(label_builder.build_label(cell["mpn"]))
+    colour = cell.get("colour") or config.type_colour(None)
+    fragment = _label_fragment(cell["html"])
     return (
         f'    <div class="cell" style="left: {cell["left"]:.3f}mm; top: {cell["top"]:.3f}mm;">\n'
         f'      <div class="bleed-underlay" style="--bar-colour: {colour};"></div>\n'
@@ -131,19 +133,49 @@ def _cell_html(cell: dict) -> str:
     )
 
 
-def build_sheet_html(mpns: list[str], *, start: int = 1) -> str:
-    """Compose the full multi-page A4 HTML for a print job.
+def _labels_from_mpns(mpns: list[str]) -> list[dict]:
+    """Build the {"html", "colour"} cell dicts for a list of cached MPNs.
 
-    Separated from render_sheet() so the layout (page count, cell coordinates,
-    label content) can be built and tested without WeasyPrint installed.
+    Each MPN's label HTML comes from label_builder.build_label() and its bleed
+    colour from the cached component's type — so the MPN-based entry points share
+    one definition of "a label for an MPN" with the generic path.
+    """
+    labels: list[dict] = []
+    for mpn in mpns:
+        colour = config.type_colour(
+            (cache.get_component(mpn) or {}).get("component_type")
+        )
+        labels.append({"html": label_builder.build_label(mpn), "colour": colour})
+    return labels
+
+
+def build_sheet_html(mpns: list[str], *, start: int = 1) -> str:
+    """Compose the full multi-page A4 HTML for a print job of cached MPNs.
+
+    Thin wrapper over build_sheet_html_from_labels(): resolves each MPN to its
+    label HTML + colour, then lays them out. Separated from render_sheet() so
+    the layout can be built and tested without WeasyPrint installed.
     """
     if not mpns:
         raise ValueError("build_sheet_html: no MPNs given.")
+    return build_sheet_html_from_labels(_labels_from_mpns(mpns), start=start)
+
+
+def build_sheet_html_from_labels(labels: list[dict], *, start: int = 1) -> str:
+    """Compose the full multi-page A4 HTML from pre-built label cells.
+
+    `labels` is an ordered list of {"html", "colour"} dicts — "html" is a
+    complete single-label document (from build_label() or build_generic_label()),
+    "colour" is its bleed-underlay colour. This is the MPN-agnostic core shared
+    by cached-part jobs (build_sheet_html) and generic-group jobs.
+    """
+    if not labels:
+        raise ValueError("build_sheet_html_from_labels: no labels given.")
     per_sheet = config.LABELS_PER_SHEET
     if not (1 <= start <= per_sheet):
         raise ValueError(f"start must be between 1 and {per_sheet} (got {start}).")
 
-    sheets = _paginate(mpns, start)
+    sheets = _paginate(labels, start)
 
     sheet_blocks: list[str] = []
     for sheet in sheets:
@@ -215,23 +247,23 @@ def build_sheet_html(mpns: list[str], *, start: int = 1) -> str:
 
 # ── Public API ──────────────────────────────────────────────────────────────────
 
-def render_sheet(
-    mpns: list[str],
+def render_labels(
+    labels: list[dict],
     output_path: str | Path,
     *,
     start: int = 1,
 ) -> Path:
-    """Render an ordered list of cached MPNs to a print-ready A4 label PDF.
+    """Render pre-built label cells to a print-ready A4 label PDF.
 
-    Labels fill positions left-to-right, top-to-bottom starting at `start`
-    (1..config.LABELS_PER_SHEET); the job spills onto extra pages as needed.
-    Writes one multi-page PDF to output_path and returns it.
+    `labels` is an ordered list of {"html", "colour"} dicts (see
+    build_sheet_html_from_labels). This is the MPN-agnostic renderer behind both
+    cached-part jobs (render_sheet) and on-the-fly generic-group jobs (the web
+    UI's generic print flow). Writes one multi-page PDF and returns its path.
 
-    Raises ValueError for bad input (no MPNs, out-of-range start), LookupError
-    if an MPN is not cached (propagated from build_label), and RuntimeError if
-    WeasyPrint is not installed.
+    Raises ValueError for bad input (no labels, out-of-range start) and
+    RuntimeError if WeasyPrint is not installed.
     """
-    html = build_sheet_html(mpns, start=start)
+    html = build_sheet_html_from_labels(labels, start=start)
 
     # Lazy import: keep the heavy/platform-specific dependency out of module load.
     try:
@@ -250,3 +282,24 @@ def render_sheet(
     # URLs resolve to real files on disk.
     HTML(string=html, base_url=str(config.TEMPLATE_DIR)).write_pdf(str(output_path))
     return output_path
+
+
+def render_sheet(
+    mpns: list[str],
+    output_path: str | Path,
+    *,
+    start: int = 1,
+) -> Path:
+    """Render an ordered list of cached MPNs to a print-ready A4 label PDF.
+
+    Labels fill positions left-to-right, top-to-bottom starting at `start`
+    (1..config.LABELS_PER_SHEET); the job spills onto extra pages as needed.
+    Writes one multi-page PDF to output_path and returns it.
+
+    Raises ValueError for bad input (no MPNs, out-of-range start), LookupError
+    if an MPN is not cached (propagated from build_label), and RuntimeError if
+    WeasyPrint is not installed.
+    """
+    if not mpns:
+        raise ValueError("render_sheet: no MPNs given.")
+    return render_labels(_labels_from_mpns(mpns), output_path, start=start)

@@ -52,7 +52,7 @@
 {% macro type_cell(c) %}<span class="dot" style="background:{{ type_colour(c.component_type) }}"></span>{{ type_display_name(c.component_type) }}{% endmacro %}
 {% macro sort_th(key, label) %}<th class="sortable" data-key="{{ key }}" scope="col" role="button" tabindex="0" aria-label="Sort by {{ label }}">{{ label }}<span class="sort-ind" aria-hidden="true"></span></th>{% endmacro %}
 
-{% if components %}
+{% if needs_review or ready %}
 
   {% if needs_review %}
   <section class="review-section">
@@ -79,13 +79,22 @@
   <table class="grid js-sortable">
     <thead><tr>{{ sort_th('mpn', 'MPN') }}{{ sort_th('type', 'Type') }}{{ sort_th('manufacturer', 'Manufacturer') }}<th>Description</th><th></th></tr></thead>
     <tbody>
-    {% for c in ready %}
-      <tr data-mpn="{{ c.mpn }}" data-type="{{ type_display_name(c.component_type) }}" data-mfr="{{ c.manufacturer or '' }}">
-        <td><a href="{{ url_for('component_detail', mpn=c.mpn) }}"><strong>{{ c.mpn }}</strong></a></td>
-        <td>{{ type_cell(c) }}</td>
-        <td>{{ c.manufacturer or '—' }}</td>
-        <td class="muted ellipsis">{{ c.description or '' }}</td>
-        <td class="actions"><a href="{{ url_for('component_edit', mpn=c.mpn) }}">edit</a></td>
+    {% for r in ready %}
+      <tr class="{% if r.is_generic %}row-generic{% endif %}"
+          data-mpn="{{ r.name }}" data-type="{{ type_display_name(r.component_type) }}" data-mfr="{{ r.manufacturer or '' }}">
+        {% if r.is_generic %}
+        <td><a href="{{ url_for('generic_print', key=r.key) }}"><strong>{{ r.name }}</strong></a></td>
+        <td><span class="badge-generic">GENERIC</span> {{ type_display_name(r.component_type) }}</td>
+        <td class="muted">—</td>
+        <td class="muted ellipsis">{{ r.description }}</td>
+        <td class="actions"><a class="btn small primary" href="{{ url_for('generic_print', key=r.key) }}">Print&nbsp;values…</a></td>
+        {% else %}
+        <td><a href="{{ url_for('component_detail', mpn=r.mpn) }}"><strong>{{ r.mpn }}</strong></a></td>
+        <td>{{ type_cell(r) }}</td>
+        <td>{{ r.manufacturer or '—' }}</td>
+        <td class="muted ellipsis">{{ r.description or '' }}</td>
+        <td class="actions"><a href="{{ url_for('component_edit', mpn=r.mpn) }}">edit</a></td>
+        {% endif %}
       </tr>
     {% endfor %}
     </tbody>
@@ -93,8 +102,9 @@
   {% endif %}
 
 {% else %}
-<p class="empty">No components{% if type_filter %} of this type{% endif %} yet.
-  Add some with <code>python main.py add &lt;MPN&gt;</code>.</p>
+<p class="empty">Nothing{% if type_filter %} of this type{% endif %} yet.
+  Add a part with <code>python main.py add &lt;MPN&gt;</code> — generic component
+  groups (resistors, caps, diodes) are seeded automatically.</p>
 {% endif %}
 {% endblock %}
 

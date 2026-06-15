@@ -197,6 +197,8 @@ _TYPE_TABLE: list[tuple[str, str, str, str]] = [
     ("capacitor_electrolytic", "Electrolytic Cap", "#4169E1", _SIMPLE),     # royal blue
     ("capacitor_ceramic",      "Ceramic Cap",      "#1E90FF", _SIMPLE),     # dodger blue
     ("zener_diode",            "Zener Diode",      "#FF8C00", _SIMPLE),     # dark orange
+    ("rectifier_diode",        "Rectifier Diode",  "#B22222", _SIMPLE),     # firebrick
+    ("schottky_diode",         "Schottky Diode",   "#CD5C5C", _SIMPLE),     # indian red
     ("bjt_transistor",         "BJT Transistor",   "#228B22", _COMPLEX),    # forest green
     ("mosfet",                 "MOSFET",           "#006400", _COMPLEX),    # dark green
     ("ic_opamp",               "IC / Op-Amp",      "#8B008B", _COMPLEX),    # dark magenta
@@ -257,6 +259,8 @@ MPN_HEADLINE_TYPES: set[str] = {
     "ic_opamp",
     "led",
     "connector",
+    "rectifier_diode",
+    "schottky_diode",
 }
 
 
@@ -310,6 +314,20 @@ LABEL_SPECS: dict[str, dict] = {
         "specs": [
             ("Power", ["powerdissipation", "powerrating", "power"]),
             ("Tolerance", ["tolerance"]),
+        ],
+    },
+    "rectifier_diode": {
+        # MPN-led (e.g. "1N4007"): reverse voltage / forward current as specs.
+        "specs": [
+            ("V_RRM", ["repetitivereversevoltage", "reversevoltage", "vrrm", "vr"]),
+            ("I_F", ["forwardcurrent", "averagerectifiedcurrent", "if"]),
+        ],
+    },
+    "schottky_diode": {
+        # MPN-led (e.g. "1N5819"): reverse voltage / forward current as specs.
+        "specs": [
+            ("V_R", ["reversevoltage", "vrrm", "vr"]),
+            ("I_F", ["forwardcurrent", "averagerectifiedcurrent", "if"]),
         ],
     },
     "led": {

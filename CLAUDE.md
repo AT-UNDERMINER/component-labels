@@ -149,6 +149,32 @@ as `overrides_json`), which backfills old rows to `status = 'ready'`.
 | label_pdf_path | TEXT | path to generated single-label PDF |
 | created_at | TEXT | |
 
+### `generic_groups` table
+Pre-defined component families (resistor/cap/diode series) with no MPN and no
+API lookup — see **Generic Component System** below. Seeded on first run from
+`core/generics.seed_definitions()` (idempotent `INSERT OR IGNORE` on `key`,
+run from `cache.init_db()` via `seed_generic_groups()`).
+
+| Column | Type | Notes |
+|---|---|---|
+| id | INTEGER PK | |
+| key | TEXT UNIQUE | stable slug, e.g. `resistor_metal_film_1pct` |
+| display_name | TEXT | e.g. "Metal Film 1%" |
+| component_type | TEXT | drives colour / chip / template (a real type key) |
+| parameters_json | TEXT | filter stages the user picks at print time (JSON) |
+| values_json | TEXT | the full value list / value axis (JSON) |
+| label_template | TEXT | which label template to render |
+| fixed_specs_json | TEXT | specs shown on every label of the group (JSON) |
+| colour | TEXT | label-bar colour; null → inherit `component_type`'s |
+| created_at | TEXT | ISO timestamp |
+
+Decoded by `cache._row_to_generic_group()` into friendlier `parameters` /
+`values` / `fixed_specs` keys. Read helpers: `list_generic_groups(type=None)`,
+`get_generic_group(key)`. Each `parameters` entry is
+`{"key", "name", "options": [...], "role"}`, where `role` is `"spec"` (shown as
+a spec row, e.g. resistor Power) or `"headline"` (appended to the headline, e.g.
+a cap's selected Voltage → "100 µF 50 V").
+
 ---
 
 ## Component Types & Colour Coding
@@ -304,6 +330,12 @@ Pages:
   template; shows an **Approve** button (save + `status → ready`) while
   `needs_review`
 - `/print` — Print job builder: select components, set start position, download PDF
+- `/generic/<key>/print` — Generic-group print flow (GET form / POST → PDF): pick
+  a value for each parameter, tick catalogue values, generate one label per value
+  (see **Generic Component System**). Parameter-less groups (diodes) skip straight
+  to the value list.
+- `/generic/<key>/preview` — single-label HTML for that page's live preview iframe
+  (`?i=<value index>` + `param_<key>=…`); mirrors `/label/<mpn>` for cached parts
 - `/settings` — Sheet geometry tweaks, colour map editor, API credentials
 
 ---
@@ -412,6 +444,54 @@ image via the CLI (`set-image`) or the web editor. `pinout_image_path` is now a
 manual-only column — the pipeline never writes it.
 
 ---
+
+## Generic Component System
+
+Generic groups are pre-defined component families (resistor / capacitor / diode
+series) that have **no specific MPN and need no API lookup**. They are seeded
+into the `generic_groups` table on first run and appear on the dashboard mixed
+in with real cached components. Instead of a detail page, a generic group has a
+**print flow**: the user picks parameter value(s) and ticks the catalogue values
+they want, and one label is generated **on the fly** per ticked value — nothing
+is stored in the DB per value.
+
+**Catalogue data — `core/generics.py`** (pure data; imports nothing from the
+project, so `cache.py` can seed from it without a circular import):
+- E-series tables (E6/E12/E24/E96) + `format_resistance()` / `format_capacitance()`
+- `seed_definitions()` → the full list of group definitions. Seeded groups:
+  - **Resistors:** Metal Film 1% (E96, 1Ω–10MΩ; Power param; Tolerance 1% fixed),
+    Carbon Film 5% (E24, 1Ω–10MΩ; Power param), Wirewound (E24, 1Ω–100kΩ; Power param)
+  - **Electrolytic caps:** GP 85 °C, HT 105 °C (E6, 1µF–10000µF; Voltage param)
+  - **Ceramic caps:** X7R, X5R (E12, 1pF–100µF; Voltage param)
+  - **Diodes (fixed value lists, no parameters):** Rectifier 1N400x (V_RRM/I_F per
+    part), Zener 1N4728A–1N4764A (V_Z per part, 1 W), Schottky 1N581x (V_R/I_F)
+
+**Label generation — `core/label_builder.build_generic_label(group, value, params)`**
+is the on-the-fly counterpart to `build_label(mpn)`; it builds the same context
+(reusing `resistor_band_svg()`, colour + luminance logic) but from a group +
+value + picked params instead of a cached record, and shows no MPN/QR/images:
+- **Resistor:** headline = value (e.g. "10 kΩ") with the colour-band SVG; Power
+  (param) + Tolerance (fixed) as specs — same as a real resistor label, no MPN
+- **Capacitor:** headline = capacitance + selected voltage ("100 µF 50 V");
+  dielectric/temp/tolerance (fixed) as specs; no MPN
+- **Diode:** the part number **is** the value (headline, e.g. "1N4007"); the
+  per-part voltage/current ratings are the specs
+
+A parameter's `role` decides how the picked option is applied: `"spec"` (a spec
+row) or `"headline"` (appended to the headline). New diode families that need
+their own dashboard chip/colour get a component type in `config._TYPE_TABLE`
+(this is why `rectifier_diode` and `schottky_diode` were added).
+
+**PDF rendering** reuses `core/pdf_renderer.py`: the layout/render core was split
+into MPN-agnostic `build_sheet_html_from_labels(labels, …)` / `render_labels(
+labels, …)` (taking `[{"html", "colour"}]`), with `build_sheet_html(mpns,…)` /
+`render_sheet(mpns,…)` now thin wrappers. The generic print POST builds its
+labels with `build_generic_label()` and calls `render_labels()` directly.
+
+**Dashboard integration:** generic groups are merged into the **Ready** section,
+sorted in with real parts. They are visually distinct — a violet row tint, a
+`GENERIC` badge in place of the type colour dot, and a *Print values…* action
+instead of a detail link — and they are included in the type filter-chip counts.
 
 ## Dependencies
 

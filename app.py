@@ -193,30 +193,66 @@ def index():
     type_filter = request.args.get("type") or None
 
     all_components = cache.list_components()
+    all_generics = cache.list_generic_groups()
+
+    # Type counts span both real components and generic groups, so the filter
+    # chips reflect everything shown on the dashboard.
     counts: dict = {}
     for c in all_components:
         counts[c.get("component_type")] = counts.get(c.get("component_type"), 0) + 1
+    for g in all_generics:
+        counts[g.get("component_type")] = counts.get(g.get("component_type"), 0) + 1
 
+    # Apply the active type filter to both lists. Generic groups always carry a
+    # type, so the "__none__" (unclassified) filter never matches one.
     if type_filter == "__none__":
         components = [c for c in all_components if not c.get("component_type")]
+        generics: list = []
     elif type_filter:
-        components = cache.list_components(type_filter)
+        components = [c for c in all_components if c.get("component_type") == type_filter]
+        generics = [g for g in all_generics if g.get("component_type") == type_filter]
     else:
         components = all_components
+        generics = all_generics
 
-    # Split the (filtered) list into the dashboard's two sections. Anything not
-    # explicitly 'needs_review' — including a NULL status from a pre-migration
-    # row — counts as ready, so a component can never silently disappear.
+    # Needs-review is a real-component concept (generics are always print-ready).
+    # Anything not explicitly 'needs_review' — including a NULL status from a
+    # pre-migration row — counts as ready, so a component never silently vanishes.
     needs_review = [c for c in components if c.get("status") == "needs_review"]
-    ready = [c for c in components if c.get("status") != "needs_review"]
+    ready_components = [c for c in components if c.get("status") != "needs_review"]
+
+    # One Ready list, mixing real components and generic groups normalised to a
+    # common row shape and sorted by name. `is_generic` drives the template's
+    # badge / row tint / "Print values…" action vs the normal detail link.
+    ready: list[dict] = []
+    for c in ready_components:
+        ready.append({
+            "is_generic": False,
+            "name": c["mpn"],
+            "mpn": c["mpn"],
+            "component_type": c.get("component_type"),
+            "manufacturer": c.get("manufacturer"),
+            "description": c.get("description"),
+        })
+    for g in generics:
+        n = len(g.get("values") or [])
+        ready.append({
+            "is_generic": True,
+            "name": g["display_name"],
+            "key": g["key"],
+            "component_type": g.get("component_type"),
+            "manufacturer": None,
+            "description": f"{n} values · pick & print on the fly",
+            "value_count": n,
+        })
+    ready.sort(key=lambda r: r["name"].lower())
 
     return render_template(
         "dashboard.html",
-        components=components,
         needs_review=needs_review,
         ready=ready,
         counts=counts,
-        total=len(all_components),
+        total=len(all_components) + len(all_generics),
         type_filter=type_filter,
     )
 
@@ -559,6 +595,108 @@ def print_builder():
         )
 
     return render_template("print.html", components=cache.list_components())
+
+
+# ── Generic component groups (pick parameters + values, print on the fly) ───────
+
+def _generic_params(group: dict) -> dict[str, str]:
+    """Resolve one picked option per parameter from the current request.
+
+    Reads ``param_<key>`` from the form (POST) or query (GET preview); an
+    unknown/blank pick falls back to the parameter's first option, so a label
+    always has a defined value for every parameter.
+    """
+    params: dict[str, str] = {}
+    for p in group.get("parameters") or []:
+        opts = p.get("options") or []
+        sel = (request.values.get(f"param_{p['key']}") or "").strip()
+        params[p["key"]] = sel if sel in opts else (opts[0] if opts else "")
+    return params
+
+
+@app.route("/generic/<key>/print", methods=["GET", "POST"])
+def generic_print(key: str):
+    """Print flow for a generic group: pick parameter(s) + tick catalogue values,
+    then generate one label per selected value (nothing is stored per value)."""
+    group = cache.get_generic_group(key)
+    if group is None:
+        abort(404)
+    values = group.get("values") or []
+
+    if request.method == "POST":
+        # Selected values arrive as indices into group["values"].
+        try:
+            indices = [int(i) for i in request.form.getlist("values")]
+        except (TypeError, ValueError):
+            indices = []
+        chosen = [values[i] for i in indices if 0 <= i < len(values)]
+        if not chosen:
+            flash("Select at least one value to print.", "error")
+            return redirect(url_for("generic_print", key=key))
+
+        try:
+            start = int(request.form.get("start", 1))
+        except (TypeError, ValueError):
+            flash("Start position must be a whole number.", "error")
+            return redirect(url_for("generic_print", key=key))
+        if not (1 <= start <= config.LABELS_PER_SHEET):
+            flash(f"Start position must be 1–{config.LABELS_PER_SHEET}.", "error")
+            return redirect(url_for("generic_print", key=key))
+
+        params = _generic_params(group)
+        colour = group.get("colour") or config.type_colour(group.get("component_type"))
+        labels = [
+            {"html": label_builder.build_generic_label(group, v, params), "colour": colour}
+            for v in chosen
+        ]
+
+        stamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        out = config.LABEL_DIR / f"generic_{key}_{stamp}.pdf"
+        try:
+            pdf_renderer.render_labels(labels, out, start=start)
+        except RuntimeError as exc:           # WeasyPrint missing, etc.
+            flash(str(exc), "error")
+            return redirect(url_for("generic_print", key=key))
+        except Exception as exc:              # any render failure -> clean message
+            flash(f"PDF generation failed: {exc}", "error")
+            return redirect(url_for("generic_print", key=key))
+
+        return send_file(
+            out, as_attachment=True, download_name=out.name,
+            mimetype="application/pdf",
+        )
+
+    # GET: parameter filter UI (if any) + the checkbox value list.
+    return render_template(
+        "generic_print.html",
+        group=group,
+        colour=group.get("colour") or config.type_colour(group.get("component_type")),
+    )
+
+
+@app.route("/generic/<key>/preview")
+def generic_preview(key: str):
+    """Single-label HTML for the generic print page's live preview iframe.
+
+    Renders catalogue value ``?i=<index>`` (default 0) with the parameters
+    currently picked in the query string, so the preview tracks the parameter
+    radios and whichever value the user last focused. A <base> makes the
+    label's relative stylesheet link resolve via the labelsrc route."""
+    group = cache.get_generic_group(key)
+    if group is None:
+        abort(404)
+    values = group.get("values") or []
+    if not values:
+        abort(404)
+    try:
+        idx = int(request.args.get("i", 0))
+    except (TypeError, ValueError):
+        idx = 0
+    if not (0 <= idx < len(values)):
+        idx = 0
+
+    html = label_builder.build_generic_label(group, values[idx], _generic_params(group))
+    return html.replace("<head>", '<head><base href="/labelsrc/">', 1)
 
 
 # ── Settings ──────────────────────────────────────────────────────────────────────
