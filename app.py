@@ -35,6 +35,7 @@ import json
 import os
 from datetime import datetime
 from pathlib import Path
+from urllib.parse import quote
 
 from flask import (
     Flask,
@@ -48,6 +49,7 @@ from flask import (
     send_from_directory,
     url_for,
 )
+from werkzeug.routing import PathConverter
 
 import config
 import main as cli  # the CLI orchestrator: add_component() + progress_sink()
@@ -63,6 +65,28 @@ app = Flask(
 )
 # Flash messages need a session secret; a dev default is fine for a LAN tool.
 app.secret_key = os.getenv("SECRET_KEY", "dev-component-labels")
+
+
+class MPNConverter(PathConverter):
+    """URL converter for manufacturer part numbers in <mpn:...> routes.
+
+    MPNs can contain slashes (e.g. 'CF1/4W103JRC'). The default `string`
+    converter matches `[^/]+`, so such a part 404s — and because WSGI servers
+    decode `%2F` to `/` before routing, even a pre-encoded URL won't match it.
+    Inheriting PathConverter's slash-spanning match regex fixes both the bare
+    and `%2F`-encoded request forms.
+
+    `to_url` percent-encodes everything (`quote(..., safe='')`) so every link
+    built with `url_for('...', mpn=...)` emits the canonical encoded form
+    (e.g. '/component/CF1%2F4W103JRC') instead of an ambiguous bare slash.
+    """
+
+    def to_url(self, value: str) -> str:
+        return quote(str(value), safe="")
+
+
+# Must be registered before the @app.route('/<mpn:...>') decorators run below.
+app.url_map.converters["mpn"] = MPNConverter
 
 # Background jobs for the dashboard's add / import features. In-memory, served
 # by the threaded dev server; the browser polls /api/job/<id> for progress.
@@ -387,7 +411,7 @@ def api_job(job_id: str):
 
 # ── Component detail ─────────────────────────────────────────────────────────────
 
-@app.route("/component/<mpn>")
+@app.route("/component/<mpn:mpn>")
 def component_detail(mpn: str):
     record = cache.get_component(mpn)
     if record is None:
@@ -397,7 +421,7 @@ def component_detail(mpn: str):
 
 # ── Component edit ────────────────────────────────────────────────────────────────
 
-@app.route("/component/<mpn>/edit", methods=["GET", "POST"])
+@app.route("/component/<mpn:mpn>/edit", methods=["GET", "POST"])
 def component_edit(mpn: str):
     """Visual drag-and-drop label editor.
 
@@ -467,7 +491,7 @@ def component_edit(mpn: str):
     )
 
 
-@app.route("/api/upload-image/<mpn>", methods=["POST"])
+@app.route("/api/upload-image/<mpn:mpn>", methods=["POST"])
 def upload_image(mpn: str):
     """Save a user-uploaded image into the part's folder so the editor gallery
     can offer it. Returns its stored path + preview URL as JSON."""
@@ -605,7 +629,7 @@ def settings():
 
 # ── Asset-serving routes (for the inline label preview + cached images) ─────────
 
-@app.route("/label/<mpn>")
+@app.route("/label/<mpn:mpn>")
 def label_html(mpn: str):
     """Raw single-label HTML for the preview iframe / editor live preview.
 
