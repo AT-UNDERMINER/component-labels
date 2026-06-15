@@ -1,6 +1,6 @@
 #!/bin/bash
 set -e
-cd ~/component-labels
+cd "$(dirname "$0")"
 source venv/bin/activate
 git pull
 pip install -r requirements.txt --quiet

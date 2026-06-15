@@ -29,7 +29,8 @@
       "PowerShell($paths = @\\(\"$env:ProgramFiles\\\\Microsoft\\\\Edge\\\\Application\\\\msedge.exe\", \"${env:ProgramFiles\\(x86\\)}\\\\Microsoft\\\\Edge\\\\Application\\\\msedge.exe\"\\); $found = $paths | Where-Object { Test-Path $_ }; if \\($found\\) { $found[0] } else { \"EDGE NOT FOUND\"; \\(Get-Command chrome -ErrorAction SilentlyContinue\\).Source })",
       "Bash(FLASK_HOST=127.0.0.1 FLASK_PORT=5078 python app.py)",
       "Bash(curl -s --retry 6 --retry-delay 1 --retry-connrefused -o /dev/null -w \"dashboard HTTP %{http_code}\\\\n\" \"http://127.0.0.1:5078/\")",
-      "Bash(python -m py_compile app.py main.py config.py core/generics.py core/cache.py core/label_builder.py core/pdf_renderer.py)"
+      "Bash(python -m py_compile app.py main.py config.py core/generics.py core/cache.py core/label_builder.py core/pdf_renderer.py)",
+      "Bash(git update-index *)"
     ],
     "additionalDirectories": [
       "\\tmp"
