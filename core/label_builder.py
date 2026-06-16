@@ -29,6 +29,7 @@ from pathlib import Path
 from typing import Any
 
 from jinja2 import Environment, FileSystemLoader, StrictUndefined, select_autoescape
+from markupsafe import Markup, escape
 
 import config
 from core import cache
@@ -456,6 +457,105 @@ def package_image_path(record: dict[str, Any]) -> Path | None:
     return _package_diagram(record, record.get("component_type"), record["mpn"])
 
 
+# ── Engineering-notation formatting (units, sub/superscripts) ─────────────────
+# Turns the plain text Nexar (or generic-catalogue) gives us into the polished
+# notation an engineer expects on a printed label — "100 uF" → "100 µF",
+# "1 kohm" → "1 kΩ", "V_RRM" → "V<sub>RRM</sub>", "10^-6" → "10<sup>-6</sup>".
+# Every rule is applied to *escaped* text, so the only live HTML in the result
+# is the <sub>/<sup> markup these helpers add (see format_value()).
+
+# Micro prefix: a leading "u" before an SI unit becomes "µ" (uF→µF, us→µs …).
+# The lookbehind stops it firing inside a word ("bus", "Volume"); the unit must
+# sit at a word boundary so "useful" / "Number" are left alone.
+_MICRO_RE = re.compile(r"(?<![A-Za-z])u(?=[FHAVWsmgΩ]\b)")
+
+# Ohm: optional SI prefix (case preserved: M=mega, m=milli) + "ohm"/"Ohm"/"ohms".
+# Anchored by non-letter boundaries so it matches "10kohm" and "1 kOhm" but not
+# the tail of an unrelated word.
+_OHM_RE = re.compile(r"(?<![A-Za-z])([kKMmGg]?)[Oo]hms?(?![A-Za-z])")
+
+# Temperature: explicit "deg C" / "degC" / "degrees F" → "°C"/"°F".
+_DEG_RE = re.compile(r"\b[Dd]eg(?:rees?)?\.?\s*([CF])\b")
+# Bare "<number> C" as a temperature → "<number> °C". Restricted to C (not F)
+# because a lone "F" almost always means farads, not Fahrenheit.
+_TEMP_NUM_RE = re.compile(r"(\d)\s+(C)\b")
+
+# Subscript: a single letter, "_", then the subscript token — an alphanumeric
+# run optionally trailed by a parenthetical, so "R_DS(on)" → "R<sub>DS(on)</sub>".
+# The \b + single-letter requirement skips multi-letter names ("supplier_device").
+_SUBSCRIPT_RE = re.compile(r"\b([A-Za-z])_([A-Za-z0-9]+(?:\([A-Za-z0-9]+\))?)")
+
+# Superscript: "^" then an optionally-signed integer (10^3, 10^-6, mm^2, cm^3).
+_SUPERSCRIPT_RE = re.compile(r"\^(-?\d+)")
+
+
+def _normalise_units(s: str) -> str:
+    """Apply the unit-normalisation rules to already-escaped text."""
+    s = s.replace("+/-", "±")
+    s = _MICRO_RE.sub("µ", s)
+    s = _OHM_RE.sub(lambda m: m.group(1) + "Ω", s)
+    s = _DEG_RE.sub(r"°\1", s)
+    s = _TEMP_NUM_RE.sub(r"\1 °\2", s)
+    return s
+
+
+def _apply_sub_super(s: str) -> str:
+    """Insert <sub>/<sup> markup for underscore and caret notation."""
+    s = _SUBSCRIPT_RE.sub(r"\1<sub>\2</sub>", s)
+    s = _SUPERSCRIPT_RE.sub(r"<sup>\1</sup>", s)
+    return s
+
+
+def format_value(text: Any) -> Markup:
+    """Format an engineering value/name for display on a label.
+
+    Normalises units (uF→µF, kohm→kΩ, deg C→°C, +/-→±) and converts engineering
+    notation to HTML: underscore subscripts (``V_RRM`` → ``V<sub>RRM</sub>``,
+    ``R_DS(on)`` → ``R<sub>DS(on)</sub>``) and caret superscripts (``10^-6`` →
+    ``10<sup>-6</sup>``, ``mm^2`` → ``mm<sup>2</sup>``).
+
+    HTML-injection safe: the source is HTML-escaped *first*, so any ``< > & " '``
+    in it become entities and can never form a tag — the only live markup in the
+    result is the ``<sub>``/``<sup>`` this function adds. The result is returned
+    as a :class:`markupsafe.Markup`, so Jinja2's autoescaping passes it through
+    untouched while still escaping every other (unformatted) template value.
+    That makes the formatted output the *only* thing marked safe.
+    """
+    if text is None:
+        return Markup("")
+    s = str(escape(text))                  # entity-encode HTML specials up front
+    s = _normalise_units(s)
+    s = _apply_sub_super(s)
+    return Markup(s)
+
+
+# Render-context fields whose plain text should be run through format_value()
+# (band_svg, image URLs, colours, type_name and the raw mpn are left as-is).
+_FORMATTED_TEXT_KEYS = ("headline", "subline", "value", "pin_count", "pitch")
+
+
+def _format_context(context: dict[str, Any]) -> dict[str, Any]:
+    """Return a copy of a render context with its human-readable text fields
+    (and every spec name/value) formatted via format_value().
+
+    Applied at render time only — label_context() itself keeps returning plain
+    strings, so the web editor still prefills its inputs with editable text and
+    matches active specs against the raw cached values.
+    """
+    out = dict(context)
+    for key in _FORMATTED_TEXT_KEYS:
+        if out.get(key) is not None:
+            out[key] = format_value(out[key])
+    if out.get("specs"):
+        out["specs"] = [
+            {**s,
+             "name": format_value(s.get("name", "")),
+             "value": format_value(s.get("value", ""))}
+            for s in out["specs"]
+        ]
+    return out
+
+
 # ── Public API ────────────────────────────────────────────────────────────────
 
 def label_context(
@@ -568,9 +668,13 @@ def build_label(mpn: str, overrides: dict[str, Any] | None = None) -> str:
 
     Thin wrapper over label_context(): see it for override semantics. Image
     overrides must be URIs resolvable from the templates/ directory.
+
+    Display text (headline/subline/specs/…) is passed through format_value()
+    via _format_context() here — at render time, not in label_context() — so the
+    web editor still prefills its inputs with the raw, editable strings.
     """
     context, template_name = label_context(mpn, overrides)
-    return _env.get_template(template_name).render(context)
+    return _env.get_template(template_name).render(_format_context(context))
 
 
 # ── Generic groups (no MPN, no cache, rendered on the fly) ──────────────────────
@@ -645,4 +749,4 @@ def build_generic_label(
         "qr_image": None,
     }
     template_name = group.get("label_template") or config.type_template(ctype)
-    return _env.get_template(template_name).render(context)
+    return _env.get_template(template_name).render(_format_context(context))

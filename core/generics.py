@@ -142,6 +142,9 @@ def _diode(part: str, *specs: tuple[str, str]) -> dict:
 
 
 # Rectifier 1N400x — all 1 A, reverse voltage (V_RRM) climbs with the suffix.
+# Per-part specs use the underscore notation (V_RRM, I_F) that label_builder
+# renders as proper subscripts; the shared forward drop / surge live in
+# fixed_specs (V_F, I_FSM) below.
 _RECTIFIER_1N400X = [
     _diode("1N4001", ("V_RRM", "50 V"), ("I_F", "1 A")),
     _diode("1N4002", ("V_RRM", "100 V"), ("I_F", "1 A")),
@@ -152,7 +155,7 @@ _RECTIFIER_1N400X = [
     _diode("1N4007", ("V_RRM", "1000 V"), ("I_F", "1 A")),
 ]
 
-# Schottky 1N581x — all 1 A, low forward drop.
+# Schottky 1N581x — all 1 A, low forward drop (V_F, the defining feature).
 _SCHOTTKY_1N581X = [
     _diode("1N5817", ("V_R", "20 V"), ("I_F", "1 A")),
     _diode("1N5818", ("V_R", "30 V"), ("I_F", "1 A")),
@@ -305,7 +308,12 @@ def seed_definitions() -> list[dict]:
             "colour": None,
             "parameters": [],
             "values": _RECTIFIER_1N400X,
-            "fixed_specs": [],
+            # Forward drop / surge are common to the whole series; the underscore
+            # notation renders as V_F → V<sub>F</sub>, I_FSM → I<sub>FSM</sub>.
+            "fixed_specs": [
+                {"name": "V_F", "value": "1.1 V"},
+                {"name": "I_FSM", "value": "30 A"},
+            ],
         },
         {
             "key": "diode_zener_1n47xxa",
@@ -325,6 +333,7 @@ def seed_definitions() -> list[dict]:
             "colour": None,
             "parameters": [],
             "values": _SCHOTTKY_1N581X,
-            "fixed_specs": [],
+            # Low forward drop is the defining Schottky feature; V_F → V<sub>F</sub>.
+            "fixed_specs": [{"name": "V_F", "value": "0.45 V"}],
         },
     ]

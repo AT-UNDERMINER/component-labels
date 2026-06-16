@@ -333,10 +333,11 @@ LABEL_SPECS: dict[str, dict] = {
     "led": {
         # MPN-led: the colour/wavelength is the secondary descriptor, not the
         # headline, so it lives under "descriptor" rather than "value".
+        # V_F / I_F render as subscripts via label_builder.format_value().
         "descriptor": ["colour", "color", "wavelength"],
         "specs": [
-            ("Forward V", ["forwardvoltage"]),
-            ("Forward I", ["forwardcurrent"]),
+            ("V_F", ["forwardvoltage"]),
+            ("I_F", ["forwardcurrent"]),
         ],
     },
     "inductor": {
@@ -348,20 +349,23 @@ LABEL_SPECS: dict[str, dict] = {
     },
     "bjt_transistor": {
         # Polarity (NPN/PNP) is the headline descriptor, so it is omitted here.
+        # Spec names use underscore notation (V_CEO, I_C, h_FE) so
+        # label_builder.format_value() renders them as proper subscripts.
         "descriptor": ["polarity", "transistortype"],
         "specs": [
-            ("Vceo", ["collectoremittervoltage", "vceo"]),
-            ("Ic max", ["collectorcurrent", "icmax"]),
-            ("hFE", ["dccurrentgain", "hfe"]),
+            ("V_CEO", ["collectoremittervoltage", "vceo"]),
+            ("I_C max", ["collectorcurrent", "icmax"]),
+            ("h_FE", ["dccurrentgain", "hfe"]),
         ],
     },
     "mosfet": {
         # Channel (N/P) is the headline descriptor, so it is omitted here.
+        # Underscore notation (V_DS, I_D, R_DS(on)) → subscripts on the label.
         "descriptor": ["channeltype", "fettype", "transistortype"],
         "specs": [
-            ("Vds", ["drainsourcevoltage", "vds"]),
-            ("Id max", ["continuousdraincurrent", "draincurrent"]),
-            ("Rds(on)", ["rdson", "drainsourceresistance"]),
+            ("V_DS", ["drainsourcevoltage", "vds"]),
+            ("I_D max", ["continuousdraincurrent", "draincurrent"]),
+            ("R_DS(on)", ["rdson", "drainsourceresistance"]),
         ],
     },
     "ic_opamp": {

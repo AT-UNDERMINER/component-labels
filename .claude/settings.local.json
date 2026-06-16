@@ -30,7 +30,13 @@
       "Bash(FLASK_HOST=127.0.0.1 FLASK_PORT=5078 python app.py)",
       "Bash(curl -s --retry 6 --retry-delay 1 --retry-connrefused -o /dev/null -w \"dashboard HTTP %{http_code}\\\\n\" \"http://127.0.0.1:5078/\")",
       "Bash(python -m py_compile app.py main.py config.py core/generics.py core/cache.py core/label_builder.py core/pdf_renderer.py)",
-      "Bash(git update-index *)"
+      "Bash(git update-index *)",
+      "Bash(python -c \"import markupsafe, jinja2; print\\('markupsafe', markupsafe.__version__\\); print\\('jinja2', jinja2.__version__\\)\")",
+      "Bash(\"/c/Program Files \\(x86\\)/Microsoft/Edge/Application/msedge.exe\" --headless=new --disable-gpu --hide-scrollbars --force-device-scale-factor=1 --screenshot=\"templates/_subscript_preview.png\" --window-size=1600,820 --default-background-color=FFFFFFFF \"file:///c:/Users/djtur/OneDrive/Projects/Zip-Lock%20Organisers/Electronics%20Data%20Scrapper/templates/_subscript_preview.html\")",
+      "Bash(\"/c/Program Files \\(x86\\)/Microsoft/Edge/Application/msedge.exe\" --headless=new --disable-gpu --hide-scrollbars --force-device-scale-factor=1 --screenshot=\"C:\\\\Users\\\\djtur\\\\OneDrive\\\\Projects\\\\Zip-Lock Organisers\\\\Electronics Data Scrapper\\\\templates\\\\_subscript_preview.png\" --window-size=1600,820 --default-background-color=FFFFFFFF \"file:///c:/Users/djtur/OneDrive/Projects/Zip-Lock%20Organisers/Electronics%20Data%20Scrapper/templates/_subscript_preview.html\")",
+      "Bash(\"/c/Program Files \\(x86\\)/Microsoft/Edge/Application/msedge.exe\" --headless=new --disable-gpu --hide-scrollbars --force-device-scale-factor=1 --screenshot=\"C:\\\\Users\\\\djtur\\\\OneDrive\\\\Projects\\\\Zip-Lock Organisers\\\\Electronics Data Scrapper\\\\templates\\\\_subscript_preview2.png\" --window-size=1600,1560 --default-background-color=FFFFFFFF \"file:///c:/Users/djtur/OneDrive/Projects/Zip-Lock%20Organisers/Electronics%20Data%20Scrapper/templates/_subscript_preview.html\")",
+      "Bash(git --no-pager diff config.py core/generics.py)",
+      "Bash(git --no-pager diff core/label_builder.py)"
     ],
     "additionalDirectories": [
       "\\tmp"
